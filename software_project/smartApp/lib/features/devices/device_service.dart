@@ -6,9 +6,11 @@ class DeviceService {
   final ApiClient api;
 
   Future<List<DeviceModel>> fetchDevices() async {
-    final res = await api.get('/api/devices'); // ✅ public
+    final res = await api.getAuthed('/api/devices');
     final list = (res['devices'] as List?) ?? [];
-    return list.map((e) => DeviceModel.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => DeviceModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> updateDevice({
@@ -16,7 +18,7 @@ class DeviceService {
     required bool isOn,
     int? sliderValue,
   }) async {
-    await api.patch('/api/devices/$id', { // ✅ public
+    await api.patchAuthed('/api/devices/$id', {
       'isOn': isOn,
       'sliderValue': sliderValue,
     });

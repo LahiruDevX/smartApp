@@ -1,8 +1,9 @@
 import express from "express";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/teacher", async (req, res) => {
+router.post("/teacher", requireAuth, async (req, res) => {
   try {
     const { message, roomId, schedule } = req.body;
 

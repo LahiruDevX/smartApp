@@ -30,8 +30,12 @@ export default router;
 */
 import express from "express";
 import pool from "../db.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
+
+// Every device endpoint requires a valid token.
+router.use(requireAuth);
 
 // GET /api/devices
 router.get("/", async (req, res) => {
@@ -53,8 +57,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// PATCH /api/devices/:id
-router.patch("/:id", async (req, res) => {
+// PATCH /api/devices/:id  — only staff may change device state
+router.patch("/:id", requireRole("admin", "teacher"), async (req, res) => {
   try {
     const { id } = req.params;
     const { isOn, sliderValue } = req.body;

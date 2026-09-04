@@ -386,6 +386,9 @@ class _NavItem extends StatelessWidget {
 //after overflow sloving
 import 'package:flutter/material.dart';
 
+import '../../core/di/app_di.dart';
+import '../../features/auth/auth_service.dart';
+
 class AppShell extends StatelessWidget {
   const AppShell({
     super.key,
@@ -522,44 +525,82 @@ class _TopBar extends StatelessWidget {
 }
 
 class _UserPill extends StatelessWidget {
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('You will need to log in again.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await authService.logout();
+    if (!context.mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/login/admin', (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 12,
-            backgroundColor: Color(0xFF2D66F6),
-            child: Icon(Icons.person, size: 14, color: Colors.white),
+    return ValueListenableBuilder<AuthUser?>(
+      valueListenable: authService.user,
+      builder: (context, user, _) {
+        final name = user?.email.split('@').first ?? 'Guest';
+        final role = user?.role ?? '—';
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F6FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.black.withOpacity(0.06)),
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
             children: [
-              const Text(
-                'Admin User',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              const CircleAvatar(
+                radius: 12,
+                backgroundColor: Color(0xFF2D66F6),
+                child: Icon(Icons.person, size: 14, color: Colors.white),
               ),
-              Text(
-                'admin',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black.withOpacity(0.55),
-                ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    role,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.black.withOpacity(0.55),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: 'Sign out',
+                onPressed: () => _logout(context),
+                icon: Icon(Icons.logout,
+                    size: 18, color: Colors.red.withOpacity(0.85)),
               ),
             ],
           ),
-          const SizedBox(width: 10),
-          Icon(Icons.logout, size: 18, color: Colors.red.withOpacity(0.85)),
-        ],
-      ),
+        );
+      },
     );
   }
 }

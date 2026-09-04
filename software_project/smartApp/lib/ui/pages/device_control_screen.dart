@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_shell.dart';
 
-import '../../core/network/api_client.dart';
+import '../../core/di/app_di.dart';
 import '../../features/devices/device_service.dart';
 import '../../features/devices/device_model.dart';
  
@@ -19,7 +19,6 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
 
-  late final ApiClient _api;
   late final DeviceService _deviceService;
 
   bool _loading = true;
@@ -88,9 +87,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
   void initState() {
     super.initState();
 
-    // ✅ Windows desktop
-    _api = ApiClient(baseUrl: 'http://localhost:4000');
-    _deviceService = DeviceService(_api);
+    _deviceService = DeviceService(apiClient);
 
     _loadDevices();
   }

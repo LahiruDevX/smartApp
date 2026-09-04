@@ -215,6 +215,21 @@ class ApiClient {
     return data;
   }
 
+  Future<Map<String, dynamic>> postAuthed(String path, Map<String, dynamic> body) async {
+    final token = await _requireToken();
+    final res = await http.post(
+      Uri.parse('$baseUrl$path'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+    final data = _decodeBody(res);
+    _ensureOk(res, data);
+    return data;
+  }
+
   Future<Map<String, dynamic>> patchAuthed(String path, Map<String, dynamic> body) async {
     final token = await _requireToken();
     final res = await http.patch(
@@ -230,8 +245,25 @@ class ApiClient {
     return data;
   }
 
+  Future<Map<String, dynamic>> deleteAuthed(String path) async {
+    final token = await _requireToken();
+    final res = await http.delete(
+      Uri.parse('$baseUrl$path'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    final data = _decodeBody(res);
+    _ensureOk(res, data);
+    return data;
+  }
+
   // ---------------- TOKEN HELPERS ----------------
 
   Future<void> saveToken(String token) => _tokenStorage.save(token);
   Future<void> logout() => _tokenStorage.clear();
+
+  /// The raw stored JWT (for passing to the embedded face-capture iframe).
+  Future<String?> currentToken() => _tokenStorage.read();
 }

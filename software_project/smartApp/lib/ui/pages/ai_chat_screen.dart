@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+import '../../core/di/app_di.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key, required this.subject});
@@ -26,16 +26,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
     });
 
     try {
-      final r = await http.post(
-        Uri.parse("http://127.0.0.1:4000/api/ai/teacher"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "message": "Subject: ${widget.subject}\nQuestion: $text",
-        }),
-      );
+      final data = await apiClient.postAuthed('/api/ai/teacher', {
+        'message': 'Subject: ${widget.subject}\nQuestion: $text',
+      });
 
-      final data = jsonDecode(r.body);
-      final reply = (data["reply"] ?? "No reply").toString();
+      final reply = (data['reply'] ?? 'No reply').toString();
 
       setState(() {
         _msgs.add(_Msg(false, reply));
