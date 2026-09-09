@@ -179,30 +179,42 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white.withOpacity(0.7),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF6F9FF), Color(0xFFFFFFFF)],
+        ),
+        border: Border(
+          right: BorderSide(color: Colors.black.withOpacity(0.04)),
+        ),
+      ),
       child: Column(
         children: [
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2D66F6),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2D66F6), Color(0xFF5B99FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
                         blurRadius: 18,
                         offset: const Offset(0, 10),
-                        color: Colors.black.withOpacity(0.12),
+                        color: Colors.black.withOpacity(0.08),
                       )
                     ],
                   ),
-                  child:
-                      const Icon(Icons.grid_view_rounded, color: Colors.white),
+                  child: const Icon(Icons.grid_view_rounded, color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -211,10 +223,10 @@ class _Sidebar extends StatelessWidget {
                     children: [
                       Text('Smart Classroom',
                           style: TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 14)),
+                              fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A))),
                       SizedBox(height: 2),
                       Text('IoT Management',
-                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                     ],
                   ),
                 ),
@@ -385,6 +397,7 @@ class _NavItem extends StatelessWidget {
 */
 //after overflow sloving
 import 'package:flutter/material.dart';
+import '../../core/di/app_di.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({
@@ -470,13 +483,21 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: 78,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-        border: Border(
-          bottom: BorderSide(color: Colors.black.withOpacity(0.06)),
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(22),
+          bottomRight: Radius.circular(22),
         ),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.08),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -487,7 +508,7 @@ class _TopBar extends StatelessWidget {
                 icon: const Icon(Icons.menu),
               ),
             ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -495,13 +516,15 @@ class _TopBar extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -513,7 +536,7 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           ...(actions ?? []),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           _UserPill(),
         ],
       ),
@@ -524,41 +547,68 @@ class _TopBar extends StatelessWidget {
 class _UserPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F6FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 12,
-            backgroundColor: Color(0xFF2D66F6),
-            child: Icon(Icons.person, size: 14, color: Colors.white),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Admin User',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-              ),
-              Text(
-                'admin',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black.withOpacity(0.55),
-                ),
+    final email = apiClient.currentEmail ?? 'admin@classroom.com';
+    final role = apiClient.currentRole ?? 'admin';
+    final displayName = email.split('@').first;
+    final isWide = MediaQuery.of(context).size.width >= 600;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        await authService.logout();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Logged out successfully')),
+          );
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login/admin',
+            (route) => false,
+          );
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: isWide ? 10 : 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F6FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black.withOpacity(0.06)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: role == 'teacher'
+                  ? const Color(0xFF16A34A)
+                  : (role == 'student' ? const Color(0xFF7C3AED) : const Color(0xFF2D66F6)),
+              child: const Icon(Icons.person, size: 14, color: Colors.white),
+            ),
+            if (isWide) ...[
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    role.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black.withOpacity(0.55),
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(width: 10),
-          Icon(Icons.logout, size: 18, color: Colors.red.withOpacity(0.85)),
-        ],
+            const SizedBox(width: 8),
+            Icon(Icons.logout, size: 18, color: Colors.red.withOpacity(0.85)),
+          ],
+        ),
       ),
     );
   }
@@ -573,27 +623,40 @@ class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white.withOpacity(0.7),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF5F7FF), Color(0xFFFFFFFF)],
+        ),
+        border: Border(
+          right: BorderSide(color: Colors.black.withOpacity(0.04)),
+        ),
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           children: [
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2D66F6),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2D66F6), Color(0xFF5B99FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
                           blurRadius: 18,
                           offset: const Offset(0, 10),
-                          color: Colors.black.withOpacity(0.12),
+                          color: Colors.black.withOpacity(0.08),
                         )
                       ],
                     ),
@@ -607,10 +670,13 @@ class _Sidebar extends StatelessWidget {
                       children: [
                         Text('Smart Classroom',
                             style: TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 14)),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: Color(0xFF0F172A))),
                         SizedBox(height: 2),
                         Text('IoT Management',
-                            style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF64748B))),
                       ],
                     ),
                   ),
@@ -654,6 +720,12 @@ class _Sidebar extends StatelessWidget {
               label: 'Schedule',
               selected: selectedRoute == '/schedule',
               onTap: () => onNavigate('/schedule'),
+            ),
+            _NavItem(
+              icon: Icons.campaign_outlined,
+              label: 'Notice Board',
+              selected: selectedRoute == '/notice-board',
+              onTap: () => onNavigate('/notice-board'),
             ),
 
             const SizedBox(height: 18),
@@ -757,29 +829,37 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFFEAF1FF) : Colors.transparent;
-    final fg = selected ? const Color(0xFF2D66F6) : const Color(0xFF334155);
+    final bg = selected ? const Color(0xFFE9EDFF) : const Color(0xFFF8FAFF);
+    final fg = selected ? const Color(0xFF5C6ACB) : const Color(0xFF334155);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: fg),
-                const SizedBox(width: 10),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFFDBE0FF) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, size: 18, color: fg),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                       color: fg,
                     ),
                   ),

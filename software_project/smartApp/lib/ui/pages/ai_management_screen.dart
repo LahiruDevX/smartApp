@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/di/app_di.dart';
 import 'app_shell.dart';
 
 class AiManagementScreen extends StatefulWidget {
@@ -11,32 +12,328 @@ class AiManagementScreen extends StatefulWidget {
 class _AiManagementScreenState extends State<AiManagementScreen> {
   int tab = 1; // 0 students, 1 lessons, 2 analytics
 
+  List<_MaterialItem> _materials = [];
+  bool _loading = true;
+  String? _error;
+
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
 
   @override
+  void initState() {
+    super.initState();
+    _fetchMaterials();
+  }
+
+  Future<void> _fetchMaterials() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final res = await apiClient.getAuthed('/api/materials');
+      if (res is List) {
+        setState(() {
+          _materials = res.map((item) {
+            if (item is Map) {
+              return _MaterialItem(
+                id: (item['id'] as num?)?.toInt() ?? 0,
+                title: item['title']?.toString() ?? 'Untitled Lesson',
+                contentUrl: item['contentUrl']?.toString() ?? '',
+                teacherEmail: (item['teacher'] is Map ? item['teacher']['email'] : null)?.toString() ?? 'teacher@classroom.com',
+                createdAt: item['createdAt']?.toString() ?? '',
+              );
+            }
+            return _MaterialItem(id: 0, title: 'Unknown', contentUrl: '', teacherEmail: '', createdAt: '');
+          }).toList();
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load learning materials: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCreateDialog() async {
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    String? dialogError;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Add Learning Material / Lesson', style: TextStyle(fontWeight: FontWeight.w800)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (dialogError != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Text(dialogError!, style: const TextStyle(color: Color(0xFF991B1B), fontSize: 12)),
+                    ),
+                  const Text('Lesson Title', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(hintText: 'e.g. Linear Algebra & Matrices'),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Content URL or PDF Path', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(hintText: 'e.g. https://classroom.internal/materials/algebra.pdf'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  final url = urlCtrl.text.trim();
+
+                  if (title.isEmpty) {
+                    setDialogState(() => dialogError = 'Please enter a title for the lesson');
+                    return;
+                  }
+                  if (url.isEmpty) {
+                    setDialogState(() => dialogError = 'Please enter a content URL or document link');
+                    return;
+                  }
+
+                  try {
+                    await apiClient.postAuthed('/api/materials', {
+                      'title': title,
+                      'contentUrl': url,
+                    });
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _fetchMaterials();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Material uploaded and indexed for AI Teacher!'),
+                          backgroundColor: Color(0xFF16A34A),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => dialogError = e.toString());
+                  }
+                },
+                child: const Text('Upload & Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(_MaterialItem item) async {
+    final titleCtrl = TextEditingController(text: item.title);
+    final urlCtrl = TextEditingController(text: item.contentUrl);
+    String? dialogError;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Edit Learning Material', style: TextStyle(fontWeight: FontWeight.w800)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (dialogError != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Text(dialogError!, style: const TextStyle(color: Color(0xFF991B1B), fontSize: 12)),
+                    ),
+                  const Text('Lesson Title', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(hintText: 'Lesson Title'),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Content URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: urlCtrl,
+                    decoration: const InputDecoration(hintText: 'Content URL'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  final url = urlCtrl.text.trim();
+
+                  if (title.isEmpty || url.isEmpty) {
+                    setDialogState(() => dialogError = 'All fields are required');
+                    return;
+                  }
+
+                  try {
+                    await apiClient.putAuthed('/api/materials/${item.id}', {
+                      'title': title,
+                      'contentUrl': url,
+                    });
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _fetchMaterials();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Material updated successfully!'),
+                          backgroundColor: Color(0xFF16A34A),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    setDialogState(() => dialogError = e.toString());
+                  }
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteMaterial(_MaterialItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Material?'),
+        content: Text('Are you sure you want to delete "${item.title}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await apiClient.deleteAuthed('/api/materials/${item.id}');
+        _fetchMaterials();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Material deleted successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete material: $e'),
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _previewMaterial(_MaterialItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Resource URL / Document:', style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            SelectableText(item.contentUrl, style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+            const SizedBox(height: 14),
+            Text('Instructor:', style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(item.teacherEmail, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        actions: [
+          ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isTeacherOrAdmin = apiClient.currentRole != 'student';
+
     return AppShell(
       title: 'Teacher Management',
       subtitle: 'Monitor student progress and manage AI learning resources',
       selectedRoute: '/ai-management',
       actions: [
-        SizedBox(
-          height: 38,
-          child: ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('New Lesson'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              textStyle:
-                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
+        if (isTeacherOrAdmin)
+          SizedBox(
+            height: 38,
+            child: ElevatedButton.icon(
+              onPressed: _showCreateDialog,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New Lesson'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
+              ),
             ),
           ),
-        ),
       ],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,11 +351,7 @@ class _AiManagementScreenState extends State<AiManagementScreen> {
                 child: tab == 0
                     ? const _StudentsTab(key: ValueKey('students'))
                     : tab == 1
-                        ? _LessonsTab(
-                            key: const ValueKey('lessons'),
-                            columns:
-                                _wide(context) ? 3 : (_mid(context) ? 2 : 1),
-                          )
+                        ? _buildLessonsView()
                         : _AnalyticsTab(
                             key: const ValueKey('analytics'),
                             columns: _wide(context) ? 2 : 1,
@@ -70,6 +363,95 @@ class _AiManagementScreenState extends State<AiManagementScreen> {
       ),
     );
   }
+
+  Widget _buildLessonsView() {
+    final columns = _wide(context) ? 3 : (_mid(context) ? 2 : 1);
+
+    if (_loading) {
+      return const SizedBox(
+        height: 280,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 14),
+              Text('Fetching materials from backend...', style: TextStyle(color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_error != null && _materials.isEmpty) {
+      return SizedBox(
+        height: 280,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 36),
+              const SizedBox(height: 10),
+              Text('Error loading materials:\n$_error', textAlign: TextAlign.center),
+              const SizedBox(height: 14),
+              ElevatedButton(onPressed: _fetchMaterials, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Course Materials (${_materials.length} active)',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 20),
+              tooltip: 'Refresh Materials',
+              onPressed: _fetchMaterials,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _WrapGrid(
+          columns: columns,
+          children: [
+            ..._materials.map((m) => _LessonCard(
+                  item: m,
+                  onEdit: () => _showEditDialog(m),
+                  onDelete: () => _deleteMaterial(m),
+                  onPreview: () => _previewMaterial(m),
+                )),
+            _CreateLessonCard(onTap: _showCreateDialog),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/* ---------------- Models ---------------- */
+
+class _MaterialItem {
+  final int id;
+  final String title;
+  final String contentUrl;
+  final String teacherEmail;
+  final String createdAt;
+
+  _MaterialItem({
+    required this.id,
+    required this.title,
+    required this.contentUrl,
+    required this.teacherEmail,
+    required this.createdAt,
+  });
 }
 
 /* ---------------- Tabs ---------------- */
@@ -94,7 +476,7 @@ class _Tabs extends StatelessWidget {
         const SizedBox(width: 18),
         _TabItem(
           icon: Icons.menu_book_outlined,
-          label: 'Lessons',
+          label: 'Lessons & Materials',
           selected: selected == 1,
           onTap: () => onChanged(1),
         ),
@@ -125,8 +507,7 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg =
-        selected ? const Color(0xFF2563EB) : Colors.black.withOpacity(0.55);
+    final fg = selected ? const Color(0xFF2563EB) : Colors.black.withOpacity(0.55);
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -137,9 +518,7 @@ class _TabItem extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: fg),
               const SizedBox(width: 8),
-              Text(label,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w900, fontSize: 12.5, color: fg)),
+              Text(label, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5, color: fg)),
             ],
           ),
           const SizedBox(height: 8),
@@ -157,7 +536,7 @@ class _TabItem extends StatelessWidget {
   }
 }
 
-/* ---------------- card shell ---------------- */
+/* ---------------- Card Shell ---------------- */
 
 class _CardShell extends StatelessWidget {
   const _CardShell({required this.child});
@@ -184,103 +563,78 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-/* ---------------- Students tab (placeholder) ---------------- */
+/* ---------------- Students Tab ---------------- */
 
 class _StudentsTab extends StatelessWidget {
   const _StudentsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 260,
-      child: Center(
-        child: Text(
-          'Students (connect data later)',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: Colors.black.withOpacity(0.55),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/* ---------------- Lessons tab ---------------- */
-
-class _LessonsTab extends StatelessWidget {
-  const _LessonsTab({super.key, required this.columns});
-  final int columns;
-
-  @override
-  Widget build(BuildContext context) {
-    final lessons = const [
-      _Lesson(
-        title: 'Introduction to\nAlgebra',
-        subject: 'Mathematics',
-        level: 'beginner',
-        description:
-            'Algebra is a branch\nof mathematics\ndealing with\nsymbols and the\nrules for\nmanipulating those\nsymbols',
-        duration: '30 min',
-      ),
-      _Lesson(
-        title: 'Python Basics',
-        subject: 'Computer Science',
-        level: 'beginner',
-        description:
-            'Python is a\nhigh-level,\ninterpreted\nprogramming\nlanguage...',
-        duration: '45 min',
-      ),
-      _Lesson(
-        title: "Newton's Laws\nof Motion",
-        subject: 'Science',
-        level: 'intermediate',
-        description:
-            "Newton's First Law:\nAn object at rest\nstays at rest, and an\nobject in motion\nstays in motion\nunless...",
-        duration: '60 min',
-      ),
+    final students = [
+      ('STU1001', 'Alex Johnson', 'Mathematics', '92% Average', 'Active'),
+      ('STU1002', 'Sophia Martinez', 'Computer Science', '88% Average', 'Active'),
+      ('STU1003', 'Liam Chen', 'Physics & Science', '95% Average', 'Active'),
+      ('STU1004', 'Emma Davis', 'Languages', '81% Average', 'Active'),
+      ('STU1005', 'Noah Wilson', 'Mathematics', '79% Average', 'Active'),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _WrapGrid(
-          columns: columns,
-          children: [
-            ...lessons.map((l) => _LessonCard(lesson: l)),
-            const _CreateLessonCard(),
-          ],
-        ),
+        const Text('Enrolled Students & Performance', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 12),
+        ...students.map((s) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.black.withOpacity(0.05)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFFDCEBFF),
+                    child: Text(s.$1.substring(3), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF2563EB))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.$2, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                        Text('${s.$1} • ${s.$3}', style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.55))),
+                      ],
+                    ),
+                  ),
+                  Text(s.$4, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A), fontSize: 12)),
+                ],
+              ),
+            )),
       ],
     );
   }
 }
 
-class _Lesson {
-  const _Lesson({
-    required this.title,
-    required this.subject,
-    required this.level,
-    required this.description,
-    required this.duration,
-  });
-
-  final String title;
-  final String subject;
-  final String level;
-  final String description;
-  final String duration;
-}
+/* ---------------- Lesson Card ---------------- */
 
 class _LessonCard extends StatelessWidget {
-  const _LessonCard({required this.lesson});
-  final _Lesson lesson;
+  const _LessonCard({
+    required this.item,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onPreview,
+  });
+
+  final _MaterialItem item;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onPreview;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 290,
+      constraints: const BoxConstraints(minHeight: 270),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -292,81 +646,89 @@ class _LessonCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCEBFF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.book_outlined, color: Color(0xFF2563EB), size: 20),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  lesson.title,
-                  style: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.w900),
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
                 ),
               ),
-              Icon(Icons.more_horiz, color: Colors.black.withOpacity(0.35)),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                tooltip: 'Delete Material',
+                onPressed: onDelete,
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text('${lesson.subject}\n${lesson.level}',
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 1.3,
-                color: Colors.black.withOpacity(0.55),
-                fontWeight: FontWeight.w700,
-              )),
+          const SizedBox(height: 8),
+          Text(
+            'Instructor: ${item.teacherEmail}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black.withOpacity(0.55),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.black.withOpacity(0.05)),
             ),
-            child: Text(
-              lesson.description,
-              style: TextStyle(
-                fontSize: 11.5,
-                height: 1.35,
-                color: Colors.black.withOpacity(0.75),
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Source Document:', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                const SizedBox(height: 2),
+                Text(
+                  item.contentUrl,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF2563EB),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
-          Row(
-            children: [
-              Text('Duration:',
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.black.withOpacity(0.55),
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(width: 10),
-              Text(lesson.duration,
-                  style: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w900)),
-            ],
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               SizedBox(
-                height: 36,
-                width: 92,
-                child: ElevatedButton(
-                  onPressed: () {},
+                height: 34,
+                child: ElevatedButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text('Edit'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    textStyle: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
                   ),
-                  child: const Text('Edit'),
                 ),
               ),
-              const SizedBox(width: 14),
-              TextButton(
-                onPressed: () {},
-                child: const Text('Preview',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: onPreview,
+                icon: const Icon(Icons.visibility_outlined, size: 14),
+                label: const Text('Preview', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5)),
               ),
             ],
           ),
@@ -377,52 +739,51 @@ class _LessonCard extends StatelessWidget {
 }
 
 class _CreateLessonCard extends StatelessWidget {
-  const _CreateLessonCard();
+  const _CreateLessonCard({required this.onTap});
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 290,
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: Colors.black.withOpacity(0.10), style: BorderStyle.solid),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF1FF),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black.withOpacity(0.05)),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 270),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.35), style: BorderStyle.solid),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAF1FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Color(0xFF2563EB), size: 28),
               ),
-              child: const Icon(Icons.add, color: Color(0xFF2563EB)),
-            ),
-            const SizedBox(height: 12),
-            const Text('Create New Lesson',
-                style: TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            Text(
-              'Add custom content\nand exercises',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 11.5,
-                  color: Colors.black.withOpacity(0.55),
-                  fontWeight: FontWeight.w700),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text('Add New Material', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
+              const SizedBox(height: 6),
+              Text(
+                'Upload notes, PDFs & index\nfor the AI Teacher',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/* ---------------- Analytics tab ---------------- */
+/* ---------------- Analytics Tab ---------------- */
 
 class _AnalyticsTab extends StatelessWidget {
   const _AnalyticsTab({super.key, required this.columns});
@@ -433,26 +794,13 @@ class _AnalyticsTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Learning Analytics',
-            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900)),
+        const Text('Learning Resources Analytics', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900)),
         const SizedBox(height: 14),
         _WrapGrid(
           columns: columns,
           children: const [
-            _PlaceholderChartCard(
-                title: 'Usage Over Time Chart',
-                subtitle: 'Weekly active sessions'),
-            _PlaceholderChartCard(
-                title: 'Student Performance Chart',
-                subtitle: 'Average progress by subject'),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _WrapGrid(
-          columns: columns,
-          children: const [
-            _PopularLessonsCard(),
-            _ChallengesCard(),
+            _ChartBox(title: 'AI Query Volume', subtitle: '142 queries answered this week'),
+            _ChartBox(title: 'Material Coverage', subtitle: '98% of queries resolved with context'),
           ],
         ),
       ],
@@ -460,15 +808,15 @@ class _AnalyticsTab extends StatelessWidget {
   }
 }
 
-class _PlaceholderChartCard extends StatelessWidget {
-  const _PlaceholderChartCard({required this.title, required this.subtitle});
+class _ChartBox extends StatelessWidget {
+  const _ChartBox({required this.title, required this.subtitle});
   final String title;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
+      height: 130,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -479,13 +827,9 @@ class _PlaceholderChartCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text(subtitle,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black.withOpacity(0.55),
-                    fontWeight: FontWeight.w700)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+            const SizedBox(height: 6),
+            Text(subtitle, style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.55), fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -493,170 +837,7 @@ class _PlaceholderChartCard extends StatelessWidget {
   }
 }
 
-class _PopularLessonsCard extends StatelessWidget {
-  const _PopularLessonsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final items = const [
-      ('1', 'Introduction to\nAlgebra', '42', 'sessions'),
-      ('2', 'Python Basics', '35', 'sessions'),
-      ('3', "Newton's Laws of\nMotion", '28', 'sessions'),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Most Popular Lessons',
-              style: TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          ...items.map((e) => _PopularRow(
-              rank: e.$1, title: e.$2, rightNum: e.$3, rightText: e.$4)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PopularRow extends StatelessWidget {
-  const _PopularRow({
-    required this.rank,
-    required this.title,
-    required this.rightNum,
-    required this.rightText,
-  });
-
-  final String rank;
-  final String title;
-  final String rightNum;
-  final String rightText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF1FF),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.black.withOpacity(0.05)),
-            ),
-            child: Center(
-              child: Text(rank,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF2563EB))),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.w800))),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(rightNum,
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
-              Text(rightText,
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.black.withOpacity(0.55),
-                      fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChallengesCard extends StatelessWidget {
-  const _ChallengesCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final items = const [
-      ('Calculus: Derivatives', '68% difficulty', Color(0xFFF59E0B)),
-      ('Physics: Quantum\nMechanics', '75%\ndifficulty', Color(0xFFEF4444)),
-      ('CS: Recursion\nConcepts', '62%\ndifficulty', Color(0xFFF59E0B)),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Common Learning Challenges',
-              style: TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          ...items.map(
-              (e) => _ChallengeRow(title: e.$1, difficulty: e.$2, color: e.$3)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChallengeRow extends StatelessWidget {
-  const _ChallengeRow(
-      {required this.title, required this.difficulty, required this.color});
-  final String title;
-  final String difficulty;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-              child: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.w800))),
-          const SizedBox(width: 10),
-          Text(
-            difficulty,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w900, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/* ---------------- layout util ---------------- */
+/* ---------------- Layout Utilities ---------------- */
 
 class _WrapGrid extends StatelessWidget {
   const _WrapGrid({required this.columns, required this.children});
@@ -666,15 +847,14 @@ class _WrapGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, c) {
-      final spacing = 14.0;
+      const spacing = 14.0;
       final w = c.maxWidth;
       final itemW = (w - (columns - 1) * spacing) / columns;
 
       return Wrap(
         spacing: spacing,
         runSpacing: spacing,
-        children:
-            children.map((e) => SizedBox(width: itemW, child: e)).toList(),
+        children: children.map((e) => SizedBox(width: itemW, child: e)).toList(),
       );
     });
   }

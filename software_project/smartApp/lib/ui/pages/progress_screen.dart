@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_shell.dart';
+import '../../core/di/app_di.dart';
+import 'take_quiz_screen.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -56,6 +58,8 @@ class ProgressScreen extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          const _StudentQuizzesSection(), // NEW: Fetch and take quizzes
           const SizedBox(height: 16),
           _CardSection(
             title: 'Subject Progress',
@@ -126,6 +130,103 @@ class ProgressScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StudentQuizzesSection extends StatefulWidget {
+  const _StudentQuizzesSection();
+  @override
+  State<_StudentQuizzesSection> createState() => _StudentQuizzesSectionState();
+}
+
+class _StudentQuizzesSectionState extends State<_StudentQuizzesSection> {
+  List<dynamic> _evals = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEvals();
+  }
+
+  Future<void> _fetchEvals() async {
+    setState(() => _loading = true);
+    try {
+      final res = await apiClient.getAuthed('/api/evaluations');
+      if (mounted) setState(() {
+        _evals = res as List<dynamic>;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _CardSection(
+      title: 'Your Scheduled Quizzes',
+      trailing: IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _fetchEvals),
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _evals.isEmpty
+              ? const Text('No pending quizzes.', style: TextStyle(color: Colors.black54))
+              : Column(
+                  children: _evals.map((e) {
+                    final isCompleted = e['completed'] == true;
+                    final dateStr = e['scheduledDate']?.toString().split('T').first ?? '';
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.black.withOpacity(0.05)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(e['title'] ?? 'Quiz', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text('${e['subject']} • $dateStr', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                                if (isCompleted) 
+                                  Text('Grade: ${e['grade']}/100', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                              ],
+                            ),
+                          ),
+                          if (!isCompleted)
+                            ElevatedButton(
+                              onPressed: () async {
+                                final isMap = e is Map;
+                                final id = isMap ? (e['id'] as num?)?.toInt() ?? 0 : 0;
+                                final title = isMap ? (e['title'] ?? 'Assessment').toString() : 'Assessment';
+                                final subject = isMap ? (e['subject'] ?? 'Mathematics').toString() : 'Mathematics';
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TakeQuizScreen(
+                                      evaluationId: id,
+                                      title: title,
+                                      subject: subject,
+                                    ),
+                                  ),
+                                );
+                                _fetchEvals();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                              child: const Text('Take Quiz'),
+                            )
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
     );
   }
 }

@@ -1,69 +1,61 @@
-/*import '../../core/network/api_client.dart';
-
-class AuthService {
-  AuthService(this.api);
-  final ApiClient api;
-
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
-    final res = await api.post('/api/auth/login', {
-      'email': email,
-      'password': password,
-    });
-
-    final token = res['token'] as String?;
-    if (token == null || token.isEmpty) {
-      throw Exception('Token not received from server');
-    }
-    await api.saveToken(token);
-  }
-}*/
 import '../../core/network/api_client.dart';
 
 class AuthService {
   AuthService(this.api);
   final ApiClient api;
 
-  Future<void> login({
+  Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
-    // 🔵 STEP 1: Confirm login function is called
-    print('🔐 AuthService.login() CALLED');
-    print('📤 Sending login request with email: $email');
-
-    // 🔵 STEP 2: Send request to backend
     final res = await api.post(
       '/api/auth/login',
       {
-        'email': email,
+        'email': email.trim(),
         'password': password,
       },
     );
 
-    // 🔵 STEP 3: Confirm backend response arrived
-    print('📥 Login response received from backend');
-    print('📦 Full response: $res');
-
-    final token = res['token'] as String?;
-
-    // 🔵 STEP 4: Validate token
-    if (token == null || token.isEmpty) {
-      print('❌ ERROR: Token missing in response');
-      throw Exception('Token not received from server');
+    if (res is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response format from server');
     }
 
-    print('✅ Token received successfully');
-    print('🪪 JWT Token: $token');
+    final token = res['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw ApiException('Authentication token was not provided by server');
+    }
 
-    // 🔵 STEP 5: Save token
     await api.saveToken(token);
-    print('💾 Token saved successfully');
 
-    // 🔵 FINAL CONFIRMATION
-    print('🎉 LOGIN FLOW COMPLETED SUCCESSFULLY');
+    final user = res['user'] as Map<String, dynamic>?;
+    if (user != null) {
+      api.setCurrentUser(user);
+    } else {
+      // Fallback
+      api.setCurrentUser({
+        'email': email,
+        'role': email.contains('admin') ? 'admin' : (email.contains('teacher') ? 'teacher' : 'student'),
+      });
+    }
+
+    return user ?? api.currentUser!;
+  }
+
+  Future<void> logout() async {
+    await api.logout();
+  }
+
+  Future<Map<String, dynamic>?> fetchCurrentUser() async {
+    try {
+      final res = await api.getAuthed('/api/auth/me');
+      if (res is Map && res['user'] is Map<String, dynamic>) {
+        final user = res['user'] as Map<String, dynamic>;
+        api.setCurrentUser(user);
+        return user;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return api.currentUser;
   }
 }
-

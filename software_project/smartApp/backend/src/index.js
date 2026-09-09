@@ -6,6 +6,10 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
+import materialsRouter from "./routes/materials.js";
+import iotRouter from "./routes/iot.js";
+import aiRouter from "./routes/ai.js";
+
 dotenv.config();
 
 const app = express();
@@ -55,6 +59,9 @@ app.get("/", (req, res) => {
   res.send("SmartClassroom API is running ✅");
 });
 
+app.use("/materials", materialsRouter);
+app.use("/iot", iotRouter);
+app.use("/ai", aiRouter);
 
 // example protected data for dashboard
 app.get("/dashboard/summary", auth, (req, res) => {

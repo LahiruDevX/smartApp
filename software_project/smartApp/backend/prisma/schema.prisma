@@ -8,9 +8,60 @@ datasource db {
 }
 
 model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  password    String
+  role        String   @default("admin") // admin, teacher, student
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  materials   Material[]   @relation("TeacherMaterials")
+  evaluations Evaluation[] @relation("StudentEvaluations")
+  notices     Notice[]     @relation("AuthorNotices")
+}
+
+model Material {
+  id          Int      @id @default(autoincrement())
+  title       String
+  contentUrl  String   // URL or Path to PDF/Doc
+  teacherId   Int
+  teacher     User     @relation("TeacherMaterials", fields: [teacherId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Evaluation {
+  id            Int      @id @default(autoincrement())
+  title         String   @default("Scheduled Quiz")
+  subject       String   @default("General")
+  studentId     Int
+  student       User     @relation("StudentEvaluations", fields: [studentId], references: [id])
+  grade         Float?
+  feedback      String?  // AI generated feedback
+  scheduledDate DateTime
+  completed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model Notice {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  role      String   @default("admin") // admin, teacher, student
+  title     String
+  content   String
+  authorId  Int
+  author    User     @relation("AuthorNotices", fields: [authorId], references: [id])
   createdAt DateTime @default(now())
+}
+
+model devices {
+  id           String   @id
+  title        String
+  is_on        Boolean
+  slider_value Float?
+}
+
+model IoTLog {
+  id          Int      @id @default(autoincrement())
+  temperature Float
+  airQuality  Float
+  lightsOn    Boolean
+  timestamp   DateTime @default(now())
 }
