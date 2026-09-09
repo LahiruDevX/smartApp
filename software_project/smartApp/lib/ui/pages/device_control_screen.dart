@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'app_shell.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/di/app_di.dart';
 import '../../features/devices/device_service.dart';
 import '../../features/devices/device_model.dart';
  
@@ -87,11 +88,8 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
   @override
   void initState() {
     super.initState();
-
-    // ✅ Windows desktop
-    _api = ApiClient(baseUrl: 'http://localhost:4000');
+    _api = apiClient;
     _deviceService = DeviceService(_api);
-
     _loadDevices();
   }
 

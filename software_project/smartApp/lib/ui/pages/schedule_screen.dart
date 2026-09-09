@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/di/app_di.dart';
 import 'app_shell.dart';
+import 'create_evaluation_screen.dart';
 
 class ScheduleScreen extends StatelessWidget {
   const ScheduleScreen({super.key});
@@ -16,7 +18,12 @@ class ScheduleScreen extends StatelessWidget {
         SizedBox(
           height: 40,
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateEvaluationScreen()),
+              );
+            },
             icon: const Icon(Icons.add),
             label: const Text('New Booking'),
             style: ElevatedButton.styleFrom(
@@ -205,40 +212,60 @@ class _WeeklyScheduleCard extends StatelessWidget {
   }
 }
 
-class _UpcomingClassesCard extends StatelessWidget {
+class _UpcomingClassesCard extends StatefulWidget {
   const _UpcomingClassesCard();
+
+  @override
+  State<_UpcomingClassesCard> createState() => _UpcomingClassesCardState();
+}
+
+class _UpcomingClassesCardState extends State<_UpcomingClassesCard> {
+  List<dynamic> _evals = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEvals();
+  }
+
+  Future<void> _fetchEvals() async {
+    setState(() => _loading = true);
+    try {
+      final res = await apiClient.getAuthed('/api/evaluations');
+      if (mounted) setState(() {
+        _evals = res as List<dynamic>;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return _CardSection(
-      title: 'Upcoming Classes',
-      child: Column(
-        children: const [
-          _UpcomingTile(
-            title: 'Computer Science 301',
-            teacher: 'Dr. Smith',
-            room: 'Room 301',
-            time: '09:00 AM  – 10:30 AM',
-            status: 'scheduled',
-          ),
-          SizedBox(height: 12),
-          _UpcomingTile(
-            title: 'Mathematics 201',
-            teacher: 'Prof. Johnson',
-            room: 'Room 301',
-            time: '11:00 AM  – 12:30 PM',
-            status: 'scheduled',
-          ),
-          SizedBox(height: 12),
-          _UpcomingTile(
-            title: 'Physics Lab',
-            teacher: 'Dr. Williams',
-            room: 'Room 301',
-            time: '02:00 PM  – 04:00 PM',
-            status: 'scheduled',
-          ),
-        ],
-      ),
+      title: 'Upcoming Quizzes',
+      trailing: IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: _fetchEvals),
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _evals.isEmpty
+              ? const Text('No upcoming quizzes scheduled.', style: TextStyle(color: Colors.black54))
+              : Column(
+                  children: _evals.map((e) {
+                    final dateStr = e['scheduledDate']?.toString().split('T').first ?? 'TBA';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _UpcomingTile(
+                        title: e['title'] ?? 'Quiz',
+                        teacher: e['subject'] ?? 'Subject',
+                        room: 'Student ID: ${e['studentId']}',
+                        time: 'Date: $dateStr',
+                        status: e['completed'] == true ? 'completed' : 'scheduled',
+                      ),
+                    );
+                  }).toList(),
+                ),
     );
   }
 }
