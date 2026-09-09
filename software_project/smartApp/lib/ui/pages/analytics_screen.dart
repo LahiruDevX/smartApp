@@ -1,16 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'app_shell.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  String _period = 'Last 30 days';
+  DateTime _updatedAt = DateTime.now();
+  final Set<String> _scheduledAlerts = {};
+
+  static const _reports = <String, _AnalyticsReport>{
+    'Last 7 days': _AnalyticsReport(
+      attendance: '93.8%',
+      attendanceChange: '+1.4% from previous week',
+      energySaved: '14%',
+      utilization: '82%',
+      savings: r'$580',
+      energy: [38, 46, 41, 50, 36],
+      attendanceTrend: [92, 95, 93, 94],
+      utilizationSplit: [36, 46, 18],
+    ),
+    'Last 30 days': _AnalyticsReport(
+      attendance: '94.2%',
+      attendanceChange: '+2.3% from last month',
+      energySaved: '18%',
+      utilization: '87%',
+      savings: r'$2,340',
+      energy: [45, 54, 48, 57, 42],
+      attendanceTrend: [94, 96, 92, 95],
+      utilizationSplit: [40, 40, 20],
+    ),
+    'This semester': _AnalyticsReport(
+      attendance: '92.7%',
+      attendanceChange: '+3.1% from last semester',
+      energySaved: '21%',
+      utilization: '84%',
+      savings: r'$9,860',
+      energy: [52, 48, 44, 46, 39],
+      attendanceTrend: [89, 91, 94, 97],
+      utilizationSplit: [42, 35, 23],
+    ),
+  };
 
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
 
+  String get _updatedLabel {
+    final hour = _updatedAt.hour == 0
+        ? 12
+        : (_updatedAt.hour > 12 ? _updatedAt.hour - 12 : _updatedAt.hour);
+    final minute = _updatedAt.minute.toString().padLeft(2, '0');
+    final suffix = _updatedAt.hour >= 12 ? 'PM' : 'AM';
+    return 'Updated $hour:$minute $suffix';
+  }
+
+  void _refresh() {
+    setState(() => _updatedAt = DateTime.now());
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Analytics data refreshed')),
+    );
+  }
+
+  Future<void> _export(_AnalyticsReport report) async {
+    final csv = <String>[
+      'Metric,Value',
+      'Report period,$_period',
+      'Average attendance,${report.attendance}',
+      'Energy saved,${report.energySaved}',
+      'Room utilization,${report.utilization}',
+      'Cost savings,${report.savings}',
+    ].join('\n');
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report copied as CSV')),
+    );
+  }
+
+  Future<void> _schedule(String alert) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    setState(() => _scheduledAlerts.add(alert));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$alert scheduled for ${date.day}/${date.month}/${date.year}',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final kpiCols = _wide(context) ? 4 : (_mid(context) ? 2 : 1);
+    final report = _reports[_period]!;
 
     return AppShell(
       title: 'Analytics & Reports',
@@ -19,32 +114,40 @@ class AnalyticsScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _ReportToolbar(
+            period: _period,
+            updatedLabel: _updatedLabel,
+            onPeriodChanged: (value) => setState(() => _period = value),
+            onRefresh: _refresh,
+            onExport: () => _export(report),
+          ),
+          const SizedBox(height: 16),
           _Grid(
             columns: kpiCols,
-            children: const [
+            children: [
               _KpiCard(
                 title: 'Avg.\nAttendance',
-                value: '94.2%',
-                note: '+2.3% from last\nmonth',
-                noteColor: Color(0xFF16A34A),
+                value: report.attendance,
+                note: report.attendanceChange,
+                noteColor: const Color(0xFF16A34A),
               ),
               _KpiCard(
                 title: 'Energy Saved',
-                value: '18%',
-                note: 'vs. last semester',
-                noteColor: Color(0xFF16A34A),
+                value: report.energySaved,
+                note: 'Compared with baseline',
+                noteColor: const Color(0xFF16A34A),
               ),
               _KpiCard(
                 title: 'Room\nUtilization',
-                value: '87%',
+                value: report.utilization,
                 note: 'Optimal range',
-                noteColor: Color(0xFF2563EB),
+                noteColor: const Color(0xFF2563EB),
               ),
               _KpiCard(
                 title: 'Cost Savings',
-                value: '\$2,340',
-                note: 'This month',
-                noteColor: Color(0xFF16A34A),
+                value: report.savings,
+                note: _period,
+                noteColor: const Color(0xFF16A34A),
               ),
             ],
           ),
@@ -52,35 +155,49 @@ class AnalyticsScreen extends StatelessWidget {
           _TwoCardsRow(
             left: _CardSection(
               title: 'Weekly Energy Usage',
-              child: SizedBox(height: 240, child: _WeeklyBarChart()),
+              child: SizedBox(
+                height: 240,
+                child: _WeeklyBarChart(values: report.energy),
+              ),
             ),
             right: _CardSection(
               title: 'Classroom Utilization',
-              child: SizedBox(height: 240, child: _UtilizationPie()),
+              child: SizedBox(
+                height: 240,
+                child: _UtilizationPie(values: report.utilizationSplit),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           _CardSection(
             title: 'Attendance Trends',
-            child: SizedBox(height: 260, child: _AttendanceLine()),
+            child: SizedBox(
+              height: 260,
+              child: _AttendanceLine(values: report.attendanceTrend),
+            ),
           ),
           const SizedBox(height: 16),
           _CardSection(
             title: 'Predictive Maintenance Alerts',
             child: Column(
-              children: const [
+              children: [
                 _AlertTile(
                   title: 'HVAC Filter Replacement',
                   subtitle: 'Recommended in 5 days based on usage patterns',
-                  bg: Color(0xFFFFF7E6),
-                  buttonColor: Color(0xFFEA7B00),
+                  bg: const Color(0xFFFFF7E6),
+                  buttonColor: const Color(0xFFEA7B00),
+                  scheduled:
+                      _scheduledAlerts.contains('HVAC Filter Replacement'),
+                  onSchedule: () => _schedule('HVAC Filter Replacement'),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _AlertTile(
                   title: 'Projector Lamp Check',
                   subtitle: 'Approaching 80% of rated lifespan',
-                  bg: Color(0xFFEFF6FF),
-                  buttonColor: Color(0xFF2563EB),
+                  bg: const Color(0xFFEFF6FF),
+                  buttonColor: const Color(0xFF2563EB),
+                  scheduled: _scheduledAlerts.contains('Projector Lamp Check'),
+                  onSchedule: () => _schedule('Projector Lamp Check'),
                 ),
               ],
             ),
@@ -91,7 +208,91 @@ class AnalyticsScreen extends StatelessWidget {
   }
 }
 
+class _AnalyticsReport {
+  const _AnalyticsReport({
+    required this.attendance,
+    required this.attendanceChange,
+    required this.energySaved,
+    required this.utilization,
+    required this.savings,
+    required this.energy,
+    required this.attendanceTrend,
+    required this.utilizationSplit,
+  });
+
+  final String attendance;
+  final String attendanceChange;
+  final String energySaved;
+  final String utilization;
+  final String savings;
+  final List<double> energy;
+  final List<double> attendanceTrend;
+  final List<double> utilizationSplit;
+}
+
 /* ---------------- components ---------------- */
+
+class _ReportToolbar extends StatelessWidget {
+  const _ReportToolbar({
+    required this.period,
+    required this.updatedLabel,
+    required this.onPeriodChanged,
+    required this.onRefresh,
+    required this.onExport,
+  });
+
+  final String period;
+  final String updatedLabel;
+  final ValueChanged<String> onPeriodChanged;
+  final VoidCallback onRefresh;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<String>(
+            initialValue: period,
+            decoration: const InputDecoration(
+              labelText: 'Report period',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(
+                  value: 'Last 7 days', child: Text('Last 7 days')),
+              DropdownMenuItem(
+                  value: 'Last 30 days', child: Text('Last 30 days')),
+              DropdownMenuItem(
+                value: 'This semester',
+                child: Text('This semester'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value != null) onPeriodChanged(value);
+            },
+          ),
+        ),
+        Text(updatedLabel, style: const TextStyle(color: Color(0xFF64748B))),
+        OutlinedButton.icon(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('Refresh'),
+        ),
+        FilledButton.icon(
+          onPressed: onExport,
+          icon: const Icon(Icons.download_outlined, size: 18),
+          label: const Text('Export CSV'),
+        ),
+      ],
+    );
+  }
+}
 
 class _Grid extends StatelessWidget {
   const _Grid({required this.columns, required this.children});
@@ -236,6 +437,10 @@ class _KpiCard extends StatelessWidget {
 /* ---------------- charts ---------------- */
 
 class _WeeklyBarChart extends StatelessWidget {
+  const _WeeklyBarChart({required this.values});
+
+  final List<double> values;
+
   @override
   Widget build(BuildContext context) {
     return BarChart(
@@ -295,11 +500,7 @@ class _WeeklyBarChart extends StatelessWidget {
           ),
         ),
         barGroups: [
-          _bar(0, 45),
-          _bar(1, 54),
-          _bar(2, 48),
-          _bar(3, 57),
-          _bar(4, 42),
+          for (var i = 0; i < values.length; i++) _bar(i, values[i]),
         ],
       ),
     );
@@ -321,26 +522,65 @@ class _WeeklyBarChart extends StatelessWidget {
 }
 
 class _UtilizationPie extends StatelessWidget {
+  const _UtilizationPie({required this.values});
+
+  final List<double> values;
+
   @override
   Widget build(BuildContext context) {
-    return PieChart(
-      PieChartData(
-        centerSpaceRadius: 0,
-        sectionsSpace: 1,
-        sections: [
-          PieChartSectionData(
-              value: 40, color: const Color(0xFF2D66F6), title: ''),
-          PieChartSectionData(
-              value: 40, color: const Color(0xFF10B981), title: ''),
-          PieChartSectionData(
-              value: 20, color: const Color(0xFFF59E0B), title: ''),
-        ],
-      ),
+    const labels = ['In use', 'Available', 'Maintenance'];
+    const colors = [Color(0xFF2D66F6), Color(0xFF10B981), Color(0xFFF59E0B)];
+    return Row(
+      children: [
+        Expanded(
+          child: PieChart(
+            PieChartData(
+              centerSpaceRadius: 34,
+              sectionsSpace: 2,
+              sections: [
+                for (var i = 0; i < values.length; i++)
+                  PieChartSectionData(
+                    value: values[i],
+                    color: colors[i],
+                    title: '${values[i].toStringAsFixed(0)}%',
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Container(width: 10, height: 10, color: colors[i]),
+                    const SizedBox(width: 7),
+                    Text(labels[i], style: const TextStyle(fontSize: 11)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
 
 class _AttendanceLine extends StatelessWidget {
+  const _AttendanceLine({required this.values});
+
+  final List<double> values;
+
   @override
   Widget build(BuildContext context) {
     return LineChart(
@@ -410,11 +650,9 @@ class _AttendanceLine extends StatelessWidget {
             barWidth: 2.5,
             color: const Color(0xFF10B981),
             dotData: const FlDotData(show: true),
-            spots: const [
-              FlSpot(1, 94),
-              FlSpot(2, 96),
-              FlSpot(3, 92),
-              FlSpot(4, 95),
+            spots: [
+              for (var i = 0; i < values.length; i++)
+                FlSpot((i + 1).toDouble(), values[i]),
             ],
           ),
         ],
@@ -431,12 +669,16 @@ class _AlertTile extends StatelessWidget {
     required this.subtitle,
     required this.bg,
     required this.buttonColor,
+    required this.scheduled,
+    required this.onSchedule,
   });
 
   final String title;
   final String subtitle;
   final Color bg;
   final Color buttonColor;
+  final bool scheduled;
+  final VoidCallback onSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +709,7 @@ class _AlertTile extends StatelessWidget {
           SizedBox(
             height: 38,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: scheduled ? null : onSchedule,
               style: ElevatedButton.styleFrom(
                 backgroundColor: buttonColor,
                 foregroundColor: Colors.white,
@@ -476,7 +718,7 @@ class _AlertTile extends StatelessWidget {
                 textStyle:
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
               ),
-              child: const Text('Schedule'),
+              child: Text(scheduled ? 'Scheduled' : 'Schedule'),
             ),
           ),
         ],

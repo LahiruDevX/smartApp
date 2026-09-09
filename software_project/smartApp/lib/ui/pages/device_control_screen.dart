@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
+
 import 'app_shell.dart';
-
-import '../../core/network/api_client.dart';
-import '../../features/devices/device_service.dart';
-import '../../features/devices/device_model.dart';
- 
-
-
 
 class DeviceControlScreen extends StatefulWidget {
   const DeviceControlScreen({super.key});
@@ -16,290 +10,245 @@ class DeviceControlScreen extends StatefulWidget {
 }
 
 class _DeviceControlScreenState extends State<DeviceControlScreen> {
-  bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
-  bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
+  bool _mainLightsOn = true;
+  bool _boardLightsOn = true;
+  bool _ceilingFanOn = true;
+  bool _ventilationFanOn = false;
+  bool _autoLighting = true;
+  bool _autoClimate = true;
 
-  late final ApiClient _api;
-  late final DeviceService _deviceService;
+  double _mainBrightness = 72;
+  double _boardBrightness = 88;
+  double _ceilingFanSpeed = 55;
+  double _ventilationFanSpeed = 40;
+  double _humidityThreshold = 65;
+  double _lightThreshold = 300;
 
-  bool _loading = true;
-  String? _error;
+  double _temperature = 24.2;
+  double _humidity = 68;
+  double _lightLevel = 284;
+  int _refreshCount = 0;
+  DateTime _lastUpdated = DateTime.now();
 
-  // Devices from backend
-  List<DeviceModel> _devices = [];
+  bool _wide(BuildContext context) => MediaQuery.sizeOf(context).width >= 1050;
+  bool _mid(BuildContext context) => MediaQuery.sizeOf(context).width >= 700;
 
-  // UI metadata for cards (icons, slider ranges, power usage, etc.)
-  final Map<String, _DeviceUiMeta> _ui = {
-    'main_lights': _DeviceUiMeta(
-      subtitle: 'light',
-      icon: Icons.lightbulb_outline,
-      hasSlider: true,
-      sliderLabel: 'Brightness',
-      sliderUnit: '%',
-      sliderMin: 0,
-      sliderMax: 100,
-      powerWhenOn: 120,
-    ),
-    'board_lights': _DeviceUiMeta(
-      subtitle: 'light',
-      icon: Icons.lightbulb_outline,
-      hasSlider: true,
-      sliderLabel: 'Brightness',
-      sliderUnit: '%',
-      sliderMin: 0,
-      sliderMax: 100,
-      powerWhenOn: 60,
-    ),
-    'projector': _DeviceUiMeta(
-      subtitle: 'projector',
-      icon: Icons.tv_outlined,
-      hasSlider: false,
-      powerWhenOn: 300,
-    ),
-    'hvac': _DeviceUiMeta(
-      subtitle: 'hvac',
-      icon: Icons.air_outlined,
-      hasSlider: true,
-      sliderLabel: 'Temperature',
-      sliderUnit: '°C',
-      sliderMin: 16,
-      sliderMax: 30,
-      powerWhenOn: 1500,
-    ),
-    'audio': _DeviceUiMeta(
-      subtitle: 'audio',
-      icon: Icons.volume_up_outlined,
-      hasSlider: false,
-      powerWhenOn: 250,
-    ),
-    'emergency_lights': _DeviceUiMeta(
-      subtitle: 'light',
-      icon: Icons.lightbulb_outline,
-      hasSlider: true,
-      sliderLabel: 'Brightness',
-      sliderUnit: '%',
-      sliderMin: 0,
-      sliderMax: 100,
-      powerWhenOn: 40,
-    ),
-  };
+  int get _activeDevices => [
+        _mainLightsOn,
+        _boardLightsOn,
+        _ceilingFanOn,
+        _ventilationFanOn,
+      ].where((value) => value).length;
 
-  @override
-  void initState() {
-    super.initState();
-
-    // ✅ Windows desktop
-    _api = ApiClient(baseUrl: 'http://localhost:4000');
-    _deviceService = DeviceService(_api);
-
-    _loadDevices();
+  int get _powerUsage {
+    final lights = (_mainLightsOn ? 96 * _mainBrightness / 100 : 0) +
+        (_boardLightsOn ? 42 * _boardBrightness / 100 : 0);
+    final fans = (_ceilingFanOn ? 75 * _ceilingFanSpeed / 100 : 0) +
+        (_ventilationFanOn ? 55 * _ventilationFanSpeed / 100 : 0);
+    return (lights + fans).round();
   }
 
-  Future<void> _loadDevices() async {
+  String get _updatedLabel {
+    final minute = _lastUpdated.minute.toString().padLeft(2, '0');
+    return '${_lastUpdated.hour.toString().padLeft(2, '0')}:$minute';
+  }
+
+  void _refreshSensors() {
+    const temperatures = [24.2, 24.7, 25.1, 24.5];
+    const humidities = [68.0, 64.0, 71.0, 61.0];
+    const lightLevels = [284.0, 410.0, 235.0, 348.0];
+    _refreshCount = (_refreshCount + 1) % temperatures.length;
+
     setState(() {
-      _loading = true;
-      _error = null;
-    });
+      _temperature = temperatures[_refreshCount];
+      _humidity = humidities[_refreshCount];
+      _lightLevel = lightLevels[_refreshCount];
+      _lastUpdated = DateTime.now();
 
-    try {
-      final devices = await _deviceService.fetchDevices();
-
-      // If backend doesn't send sliderValue for non-slider devices, keep it null
-      setState(() {
-        _devices = devices;
-        _loading = false;
-      });
-
-      debugPrint('✅ Devices loaded: ${devices.length}');
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-      debugPrint('❌ Load devices failed: $e');
-    }
-  }
-
-  int get _activeCount => _devices.where((d) => d.isOn).length;
-
-  int get _totalPowerW {
-    int sum = 0;
-    for (final d in _devices) {
-      final meta = _ui[d.id];
-      final power = meta?.powerWhenOn ?? 0;
-      if (d.isOn) sum += power;
-    }
-    return sum;
-  }
-
-  double get _estimatedCostPerHour {
-    // Example tariff: $0.00012 per Wh
-    return _totalPowerW * 0.00012;
-  }
-
-  Future<void> _turnAll(bool on) async {
-    // optimistic update
-    setState(() {
-      for (final d in _devices) {
-        d.isOn = on;
+      if (_autoLighting) {
+        _mainLightsOn = _lightLevel < _lightThreshold;
+        _mainBrightness = _mainLightsOn
+            ? ((500 - _lightLevel) / 5).clamp(35, 100)
+            : _mainBrightness;
+      }
+      if (_autoClimate) {
+        _ceilingFanOn = _humidity >= _humidityThreshold;
+        _ceilingFanSpeed = _ceilingFanOn
+            ? (45 + (_humidity - _humidityThreshold) * 4).clamp(45, 100)
+            : _ceilingFanSpeed;
       }
     });
 
-    // send updates to backend
-    for (final d in _devices) {
-      try {
-        await _deviceService.updateDevice(
-          id: d.id,
-          isOn: d.isOn,
-          sliderValue: d.sliderValue,
-        );
-      } catch (e) {
-        debugPrint('❌ Failed update ${d.id}: $e');
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sensor readings updated')),
+    );
   }
 
-  Future<void> _toggle(DeviceModel d) async {
-    final newValue = !d.isOn;
-
-    // optimistic update
-    setState(() => d.isOn = newValue);
-
-    try {
-      await _deviceService.updateDevice(
-        id: d.id,
-        isOn: d.isOn,
-        sliderValue: d.sliderValue,
-      );
-      debugPrint('✅ Updated ${d.id}: isOn=${d.isOn}');
-    } catch (e) {
-      // revert on error
-      setState(() => d.isOn = !newValue);
-      debugPrint('❌ Toggle failed: $e');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _setSlider(DeviceModel d, int value) async {
-    // optimistic update
-    setState(() => d.sliderValue = value);
-
-    try {
-      await _deviceService.updateDevice(
-        id: d.id,
-        isOn: d.isOn,
-        sliderValue: d.sliderValue,
-      );
-    } catch (e) {
-      debugPrint('❌ Slider update failed: $e');
-    }
+  void _turnEverythingOff() {
+    setState(() {
+      _mainLightsOn = false;
+      _boardLightsOn = false;
+      _ceilingFanOn = false;
+      _ventilationFanOn = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final cols = _wide(context) ? 3 : (_mid(context) ? 2 : 1);
-
-    if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_error != null) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('❌ Failed to load devices\n\n$_error'),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: _loadDevices,
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final deviceColumns = _wide(context) ? 2 : 1;
+    final sensorColumns = _wide(context) ? 3 : (_mid(context) ? 3 : 1);
 
     return AppShell(
-      title: 'Device Control Center',
-      subtitle: 'Manage and monitor all classroom devices',
+      title: 'Smart Classroom Control',
+      subtitle: 'Classroom A-01 / Live device and sensor management',
       selectedRoute: '/device-control',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _StatusStrip(
+            activeDevices: _activeDevices,
+            powerUsage: _powerUsage,
+            updatedLabel: _updatedLabel,
+            onRefresh: _refreshSensors,
+            onAllOff: _turnEverythingOff,
+          ),
+          const SizedBox(height: 22),
+          const _SectionHeading(
+            title: 'Live classroom sensors',
+            subtitle: 'Readings used by automatic fan and lighting controls',
+          ),
+          const SizedBox(height: 12),
           _Grid(
-            columns: _wide(context) ? 3 : (_mid(context) ? 2 : 1),
+            columns: sensorColumns,
             children: [
-              _SummaryCard(title: 'Total Power', value: '$_totalPowerW W'),
-              _SummaryCard(
-                title: 'Active Devices',
-                value: '$_activeCount/${_devices.length}',
+              _SensorCard(
+                label: 'Temperature',
+                value: _temperature.toStringAsFixed(1),
+                unit: '°C',
+                icon: Icons.thermostat_rounded,
+                color: const Color(0xFFF97316),
+                status: _temperature <= 26 ? 'Comfortable' : 'Warm',
+                progress: (_temperature / 40).clamp(0, 1),
               ),
-              _SummaryCard(
-                title: 'Estimated Cost',
-                value: '\$${_estimatedCostPerHour.toStringAsFixed(2)} /hr',
+              _SensorCard(
+                label: 'Humidity',
+                value: _humidity.toStringAsFixed(0),
+                unit: '%',
+                icon: Icons.water_drop_outlined,
+                color: const Color(0xFF0EA5E9),
+                status: _humidity >= _humidityThreshold
+                    ? 'Above threshold'
+                    : 'Normal',
+                progress: (_humidity / 100).clamp(0, 1),
+              ),
+              _SensorCard(
+                label: 'Light level',
+                value: _lightLevel.toStringAsFixed(0),
+                unit: 'lux',
+                icon: Icons.light_mode_outlined,
+                color: const Color(0xFFF59E0B),
+                status: _lightLevel < _lightThreshold ? 'Low light' : 'Bright',
+                progress: (_lightLevel / 600).clamp(0, 1),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          const SizedBox(height: 24),
+          const _SectionHeading(
+            title: 'Lights and fans',
+            subtitle: 'Manual controls remain available when automation is on',
+          ),
+          const SizedBox(height: 12),
+          _Grid(
+            columns: deviceColumns,
             children: [
-              _ActionButton(
-                label: 'Turn All On',
-                color: const Color(0xFF16A34A),
-                onTap: () => _turnAll(true),
+              _DeviceCard(
+                title: 'Main classroom lights',
+                subtitle: '6 ceiling LED panels',
+                icon: Icons.lightbulb_outline_rounded,
+                color: const Color(0xFFF59E0B),
+                isOn: _mainLightsOn,
+                value: _mainBrightness,
+                valueLabel: 'Brightness',
+                valueText: '${_mainBrightness.round()}%',
+                power: _mainLightsOn
+                    ? '${(96 * _mainBrightness / 100).round()} W'
+                    : '0 W',
+                onToggle: (value) => setState(() => _mainLightsOn = value),
+                onChanged: (value) => setState(() {
+                  _mainBrightness = value;
+                  _mainLightsOn = value > 0;
+                }),
               ),
-              _ActionButton(
-                label: 'Turn All Off',
-                color: const Color(0xFFDC2626),
-                onTap: () => _turnAll(false),
+              _DeviceCard(
+                title: 'Board lights',
+                subtitle: '2 focused LED strips',
+                icon: Icons.highlight_outlined,
+                color: const Color(0xFFF59E0B),
+                isOn: _boardLightsOn,
+                value: _boardBrightness,
+                valueLabel: 'Brightness',
+                valueText: '${_boardBrightness.round()}%',
+                power: _boardLightsOn
+                    ? '${(42 * _boardBrightness / 100).round()} W'
+                    : '0 W',
+                onToggle: (value) => setState(() => _boardLightsOn = value),
+                onChanged: (value) => setState(() {
+                  _boardBrightness = value;
+                  _boardLightsOn = value > 0;
+                }),
               ),
-              _ActionButton(
-                label: 'Refresh',
-                color: const Color(0xFF2D66F6),
-                onTap: _loadDevices,
+              _DeviceCard(
+                title: 'Ceiling fans',
+                subtitle: '4 classroom fans',
+                icon: Icons.air_rounded,
+                color: const Color(0xFF2563EB),
+                isOn: _ceilingFanOn,
+                value: _ceilingFanSpeed,
+                valueLabel: 'Fan speed',
+                valueText: '${_ceilingFanSpeed.round()}%',
+                power: _ceilingFanOn
+                    ? '${(75 * _ceilingFanSpeed / 100).round()} W'
+                    : '0 W',
+                onToggle: (value) => setState(() => _ceilingFanOn = value),
+                onChanged: (value) => setState(() {
+                  _ceilingFanSpeed = value;
+                  _ceilingFanOn = value > 0;
+                }),
+              ),
+              _DeviceCard(
+                title: 'Ventilation fan',
+                subtitle: 'Fresh-air circulation',
+                icon: Icons.cyclone_rounded,
+                color: const Color(0xFF14B8A6),
+                isOn: _ventilationFanOn,
+                value: _ventilationFanSpeed,
+                valueLabel: 'Fan speed',
+                valueText: '${_ventilationFanSpeed.round()}%',
+                power: _ventilationFanOn
+                    ? '${(55 * _ventilationFanSpeed / 100).round()} W'
+                    : '0 W',
+                onToggle: (value) => setState(() => _ventilationFanOn = value),
+                onChanged: (value) => setState(() {
+                  _ventilationFanSpeed = value;
+                  _ventilationFanOn = value > 0;
+                }),
               ),
             ],
           ),
-
-          const SizedBox(height: 14),
-
-          _Grid(
-            columns: cols,
-            children: _devices.map((d) {
-              final meta = _ui[d.id] ??
-                  _DeviceUiMeta(
-                    subtitle: 'device',
-                    icon: Icons.devices_other,
-                    hasSlider: d.sliderValue != null,
-                    sliderLabel: 'Value',
-                    sliderUnit: '',
-                    sliderMin: 0,
-                    sliderMax: 100,
-                    powerWhenOn: 0,
-                  );
-
-              return _DeviceCard(
-                device: d,
-                meta: meta,
-                onToggle: () => _toggle(d),
-                onSlider: (v) => _setSlider(d, v.round()),
-              );
-            }).toList(),
+          const SizedBox(height: 24),
+          _AutomationPanel(
+            autoLighting: _autoLighting,
+            autoClimate: _autoClimate,
+            lightThreshold: _lightThreshold,
+            humidityThreshold: _humidityThreshold,
+            onAutoLightingChanged: (value) =>
+                setState(() => _autoLighting = value),
+            onAutoClimateChanged: (value) =>
+                setState(() => _autoClimate = value),
+            onLightThresholdChanged: (value) =>
+                setState(() => _lightThreshold = value),
+            onHumidityThresholdChanged: (value) =>
+                setState(() => _humidityThreshold = value),
           ),
         ],
       ),
@@ -307,101 +256,247 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
   }
 }
 
-/* ---------------- widgets ---------------- */
+class _StatusStrip extends StatelessWidget {
+  const _StatusStrip({
+    required this.activeDevices,
+    required this.powerUsage,
+    required this.updatedLabel,
+    required this.onRefresh,
+    required this.onAllOff,
+  });
+
+  final int activeDevices;
+  final int powerUsage;
+  final String updatedLabel;
+  final VoidCallback onRefresh;
+  final VoidCallback onAllOff;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF172554), Color(0xFF1D4ED8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Wrap(
+        spacing: 28,
+        runSpacing: 16,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const _LiveIndicator(),
+          _StatusValue(label: 'Active devices', value: '$activeDevices / 4'),
+          _StatusValue(label: 'Current power', value: '$powerUsage W'),
+          _StatusValue(label: 'Last sensor update', value: updatedLabel),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white54),
+            ),
+            icon: const Icon(Icons.sync_rounded, size: 18),
+            label: const Text('Read sensors'),
+          ),
+          FilledButton.icon(
+            onPressed: onAllOff,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1E3A8A),
+            ),
+            icon: const Icon(Icons.power_settings_new_rounded, size: 18),
+            label: const Text('All off'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveIndicator extends StatelessWidget {
+  const _LiveIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.sensors_rounded, color: Color(0xFF86EFAC)),
+        SizedBox(width: 8),
+        Text(
+          'SYSTEM ONLINE',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusValue extends StatelessWidget {
+  const _StatusValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 3),
+        Text(subtitle, style: const TextStyle(color: Color(0xFF64748B))),
+      ],
+    );
+  }
+}
 
 class _Grid extends StatelessWidget {
   const _Grid({required this.columns, required this.children});
+
   final int columns;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (_, c) {
-      final spacing = 14.0;
-      final w = c.maxWidth;
-      final itemW = (w - (columns - 1) * spacing) / columns;
-
-      return Wrap(
-        spacing: spacing,
-        runSpacing: spacing,
-        children: children.map((e) => SizedBox(width: itemW, child: e)).toList(),
-      );
-    });
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.title, required this.value});
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 92,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 22,
-            offset: const Offset(0, 14),
-            color: Colors.black.withOpacity(0.08),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black.withOpacity(0.60),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 14.0;
+        final width =
+            (constraints.maxWidth - (columns - 1) * spacing) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children) SizedBox(width: width, child: child),
+          ],
+        );
+      },
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
+class _SensorCard extends StatelessWidget {
+  const _SensorCard({
     required this.label,
+    required this.value,
+    required this.unit,
+    required this.icon,
     required this.color,
-    required this.onTap,
+    required this.status,
+    required this.progress,
   });
 
   final String label;
+  final String value;
+  final String unit;
+  final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final String status;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
-        ),
-        child: Text(label),
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status,
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(label, style: const TextStyle(color: Color(0xFF64748B))),
+          const SizedBox(height: 3),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(color: Color(0xFF0F172A)),
+              children: [
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                      fontSize: 29, fontWeight: FontWeight.w900),
+                ),
+                TextSpan(
+                  text: ' $unit',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: color,
+              backgroundColor: color.withValues(alpha: 0.12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -409,118 +504,103 @@ class _ActionButton extends StatelessWidget {
 
 class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
-    required this.device,
-    required this.meta,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isOn,
+    required this.value,
+    required this.valueLabel,
+    required this.valueText,
+    required this.power,
     required this.onToggle,
-    required this.onSlider,
+    required this.onChanged,
   });
 
-  final DeviceModel device;
-  final _DeviceUiMeta meta;
-  final VoidCallback onToggle;
-  final ValueChanged<double> onSlider;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool isOn;
+  final double value;
+  final String valueLabel;
+  final String valueText;
+  final String power;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final accent = const Color(0xFF2D66F6);
-    final hasSlider = meta.hasSlider;
-
-    // Ensure sliderValue exists for slider devices
-    final sliderValue = (device.sliderValue ?? meta.sliderMin).clamp(meta.sliderMin, meta.sliderMax);
-
-    return Container(
-      height: hasSlider ? 220 : 175,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 22,
-            offset: const Offset(0, 14),
-            color: Colors.black.withOpacity(0.08),
-          ),
-        ],
-      ),
+    return _Panel(
+      highlighted: isOn,
+      highlightColor: color,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _IconTile(icon: meta.icon),
-              const SizedBox(width: 10),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: isOn ? 0.16 : 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child:
+                    Icon(icon, color: isOn ? color : const Color(0xFF94A3B8)),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      meta.prettyTitle(device.title),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                      title,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w900),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      meta.subtitle,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.black.withOpacity(0.55),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    const SizedBox(height: 3),
+                    Text(subtitle,
+                        style: const TextStyle(color: Color(0xFF64748B))),
                   ],
                 ),
               ),
-              _PowerButton(isOn: device.isOn, onTap: onToggle, accent: accent),
+              Switch(value: isOn, activeTrackColor: color, onChanged: onToggle),
             ],
           ),
-          const SizedBox(height: 12),
-          if (hasSlider) ...[
-            Row(
-              children: [
-                Text(
-                  meta.sliderLabel ?? 'Value',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.black.withOpacity(0.6),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '$sliderValue${meta.sliderUnit}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 4,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              ),
-              child: Slider(
-                value: sliderValue.toDouble(),
-                min: meta.sliderMin.toDouble(),
-                max: meta.sliderMax.toDouble(),
-                onChanged: device.isOn ? onSlider : null,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
+          const SizedBox(height: 22),
           Row(
             children: [
-              Text(
-                'Power Usage',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: Colors.black.withOpacity(0.6),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              Text(valueLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text(valueText,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: 0,
+            max: 100,
+            activeColor: color,
+            onChanged: onChanged,
+          ),
+          Row(
+            children: [
+              Icon(Icons.bolt_rounded, size: 17, color: color),
+              const SizedBox(width: 4),
+              Text(power,
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w800)),
               const Spacer(),
               Text(
-                device.isOn ? '${meta.powerWhenOn}W' : '0W',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                isOn ? 'ON' : 'OFF',
+                style: TextStyle(
+                  color:
+                      isOn ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -530,85 +610,198 @@ class _DeviceCard extends StatelessWidget {
   }
 }
 
-class _IconTile extends StatelessWidget {
-  const _IconTile({required this.icon});
+class _AutomationPanel extends StatelessWidget {
+  const _AutomationPanel({
+    required this.autoLighting,
+    required this.autoClimate,
+    required this.lightThreshold,
+    required this.humidityThreshold,
+    required this.onAutoLightingChanged,
+    required this.onAutoClimateChanged,
+    required this.onLightThresholdChanged,
+    required this.onHumidityThresholdChanged,
+  });
+
+  final bool autoLighting;
+  final bool autoClimate;
+  final double lightThreshold;
+  final double humidityThreshold;
+  final ValueChanged<bool> onAutoLightingChanged;
+  final ValueChanged<bool> onAutoClimateChanged;
+  final ValueChanged<double> onLightThresholdChanged;
+  final ValueChanged<double> onHumidityThresholdChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: Color(0xFF7C3AED)),
+              SizedBox(width: 9),
+              Text('Sensor automation',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Devices are adjusted after each sensor reading according to these rules.',
+            style: TextStyle(color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 720;
+              final lighting = _AutomationRule(
+                icon: Icons.light_mode_outlined,
+                title: 'Automatic lighting',
+                description:
+                    'Turn on main lights below ${lightThreshold.round()} lux',
+                enabled: autoLighting,
+                value: lightThreshold,
+                min: 100,
+                max: 500,
+                divisions: 8,
+                onToggle: onAutoLightingChanged,
+                onChanged: onLightThresholdChanged,
+              );
+              final climate = _AutomationRule(
+                icon: Icons.water_drop_outlined,
+                title: 'Humidity control',
+                description:
+                    'Turn on ceiling fans above ${humidityThreshold.round()}%',
+                enabled: autoClimate,
+                value: humidityThreshold,
+                min: 40,
+                max: 80,
+                divisions: 8,
+                onToggle: onAutoClimateChanged,
+                onChanged: onHumidityThresholdChanged,
+              );
+              if (!wide) {
+                return Column(
+                    children: [lighting, const SizedBox(height: 14), climate]);
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: lighting),
+                  const SizedBox(width: 14),
+                  Expanded(child: climate),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutomationRule extends StatelessWidget {
+  const _AutomationRule({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.enabled,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onToggle,
+    required this.onChanged,
+  });
+
   final IconData icon;
+  final String title;
+  final String description;
+  final bool enabled;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<bool> onToggle;
+  final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 46,
-      height: 46,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Icon(icon, color: const Color(0xFF2D66F6)),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: const Color(0xFF475569)),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(fontWeight: FontWeight.w900)),
+                    Text(description,
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+              Switch(value: enabled, onChanged: onToggle),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: value.round().toString(),
+            onChanged: enabled ? onChanged : null,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PowerButton extends StatelessWidget {
-  const _PowerButton({
-    required this.isOn,
-    required this.onTap,
-    required this.accent,
+class _Panel extends StatelessWidget {
+  const _Panel({
+    required this.child,
+    this.highlighted = false,
+    this.highlightColor = const Color(0xFF2563EB),
   });
 
-  final bool isOn;
-  final VoidCallback onTap;
-  final Color accent;
+  final Widget child;
+  final bool highlighted;
+  final Color highlightColor;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isOn ? accent : const Color(0xFFEFF2F6),
-          borderRadius: BorderRadius.circular(10),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: highlighted
+              ? highlightColor.withValues(alpha: 0.25)
+              : const Color(0xFFE2E8F0),
         ),
-        child: Icon(
-          Icons.power_settings_new,
-          color: isOn ? Colors.white : Colors.black.withOpacity(0.55),
-          size: 20,
-        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D0F172A),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
+      child: child,
     );
-  }
-}
-
-/* ---------------- UI meta ---------------- */
-
-class _DeviceUiMeta {
-  _DeviceUiMeta({
-    required this.subtitle,
-    required this.icon,
-    required this.hasSlider,
-    required this.powerWhenOn,
-    this.sliderLabel,
-    this.sliderUnit = '',
-    this.sliderMin = 0,
-    this.sliderMax = 100,
-  });
-
-  final String subtitle;
-  final IconData icon;
-  final bool hasSlider;
-
-  final int powerWhenOn;
-
-  final String? sliderLabel;
-  final String sliderUnit;
-  final int sliderMin;
-  final int sliderMax;
-
-  // Backend title is "Main Lights" but your UI sometimes wants "Main\nLights"
-  String prettyTitle(String backendTitle) {
-    // keep backend title as-is; you can customize line breaks if you want
-    return backendTitle;
   }
 }
