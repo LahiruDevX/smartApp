@@ -14,6 +14,7 @@ import 'ui/pages/progress_screen.dart';
 import 'ui/pages/ai_management_screen.dart';
 import 'ui/pages/analytics_screen.dart';
 import 'ui/pages/schedule_screen.dart';
+import 'ui/pages/notice_board_screen.dart';
 
 
 void main() {
@@ -91,12 +92,14 @@ class MyApp extends StatelessWidget {
   '/attendance': (_) => const AttendanceScreen(),
   '/analytics': (_) => const AnalyticsScreen(),
   '/schedule': (_) => const ScheduleScreen(),
+  '/notice-board': (_) => const NoticeBoardScreen(),
 
   '/ai-teacher': (_) => const AiTeacherScreen(),
   '/learning': (_) => const LearningScreen(),
   '/progress': (_) => const ProgressScreen(),
   '/ai-management': (_) => const AiManagementScreen(),
 },
+
 
     );
   }

@@ -98,6 +98,53 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$baseUrl$path'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      final data = _decodeBody(res);
+      _ensureOk(res, data);
+      return data;
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network connection failed: $e');
+    }
+  }
+
+  Future<dynamic> patch(String path, Map<String, dynamic> body) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl$path'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+      final data = _decodeBody(res);
+      _ensureOk(res, data);
+      return data;
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network connection failed: $e');
+    }
+  }
+
+  Future<dynamic> delete(String path) async {
+    try {
+      final res = await http.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: const {'Content-Type': 'application/json'},
+      );
+      final data = _decodeBody(res);
+      _ensureOk(res, data);
+      return data;
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network connection failed: $e');
+    }
+  }
+
   // ---------------- Authed Requests (Token Included) ----------------
 
   Future<dynamic> getAuthed(String path) async {

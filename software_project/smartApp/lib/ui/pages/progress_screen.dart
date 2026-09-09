@@ -201,7 +201,20 @@ class _StudentQuizzesSectionState extends State<_StudentQuizzesSection> {
                           if (!isCompleted)
                             ElevatedButton(
                               onPressed: () async {
-                                await Navigator.push(context, MaterialPageRoute(builder: (_) => TakeQuizScreen(quiz: e)));
+                                final isMap = e is Map;
+                                final id = isMap ? (e['id'] as num?)?.toInt() ?? 0 : 0;
+                                final title = isMap ? (e['title'] ?? 'Assessment').toString() : 'Assessment';
+                                final subject = isMap ? (e['subject'] ?? 'Mathematics').toString() : 'Mathematics';
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TakeQuizScreen(
+                                      evaluationId: id,
+                                      title: title,
+                                      subject: subject,
+                                    ),
+                                  ),
+                                );
                                 _fetchEvals();
                               },
                               style: ElevatedButton.styleFrom(

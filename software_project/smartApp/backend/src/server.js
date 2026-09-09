@@ -12,6 +12,7 @@ import aiRoutes from "./routes/ai.js";
 import materialsRoutes from "./routes/materials.js";
 import iotRoutes from "./routes/iot.js";
 import evaluationsRoutes from "./routes/evaluations.js";
+import noticesRoutes from "./routes/notices.js";
 
 dotenv.config();
 
@@ -45,6 +46,8 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/materials", materialsRoutes);
 app.use("/api/iot", iotRoutes);
 app.use("/api/evaluations", evaluationsRoutes);
+app.use("/api/notices", noticesRoutes);
+
 
 // 3D Teacher static files
 const __filename = fileURLToPath(import.meta.url);

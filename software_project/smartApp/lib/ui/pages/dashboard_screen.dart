@@ -163,10 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
                     const _HeaderPill(label: 'Live Classroom', accent: Color(0xFF7C78F9)),
-                    const SizedBox(width: 10),
                     _HeaderPill(
                       label: _error == null ? 'Sensors Online' : 'Sensors Error',
                       accent: _error == null ? const Color(0xFF4AD7A6) : const Color(0xFFF87171),
@@ -211,10 +212,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (_loading)
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: const [
                     SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                     SizedBox(width: 8),
@@ -226,13 +231,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Last synced: $_lastUpdated',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                 ),
-              const Spacer(),
               _SoftButton(
                 icon: Icons.refresh,
                 label: 'Refresh',
                 onTap: _fetchDashboardData,
               ),
-              const SizedBox(width: 10),
               _SoftButton(
                 icon: Icons.description_outlined,
                 label: 'View Analytics',
@@ -251,7 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 iconBg: const Color(0xFFDCEBFF),
                 icon: Icons.flash_on_outlined,
                 title: 'Active\nDevices',
-                value: '$_activeCount',
+                value: '$_activeDevices',
                 chipText: 'Online',
                 chipColor: const Color(0xFF2D66F6),
               ),

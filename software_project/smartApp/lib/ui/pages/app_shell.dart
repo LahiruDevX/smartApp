@@ -516,6 +516,8 @@ class _TopBar extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -548,6 +550,7 @@ class _UserPill extends StatelessWidget {
     final email = apiClient.currentEmail ?? 'admin@classroom.com';
     final role = apiClient.currentRole ?? 'admin';
     final displayName = email.split('@').first;
+    final isWide = MediaQuery.of(context).size.width >= 600;
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -565,13 +568,14 @@ class _UserPill extends StatelessWidget {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: isWide ? 10 : 8, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F6FF),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.black.withOpacity(0.06)),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
               radius: 12,
@@ -580,26 +584,28 @@ class _UserPill extends StatelessWidget {
                   : (role == 'student' ? const Color(0xFF7C3AED) : const Color(0xFF2D66F6)),
               child: const Icon(Icons.person, size: 14, color: Colors.white),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  role.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black.withOpacity(0.55),
+            if (isWide) ...[
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 10),
+                  Text(
+                    role.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black.withOpacity(0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(width: 8),
             Icon(Icons.logout, size: 18, color: Colors.red.withOpacity(0.85)),
           ],
         ),
@@ -714,6 +720,12 @@ class _Sidebar extends StatelessWidget {
               label: 'Schedule',
               selected: selectedRoute == '/schedule',
               onTap: () => onNavigate('/schedule'),
+            ),
+            _NavItem(
+              icon: Icons.campaign_outlined,
+              label: 'Notice Board',
+              selected: selectedRoute == '/notice-board',
+              onTap: () => onNavigate('/notice-board'),
             ),
 
             const SizedBox(height: 18),
