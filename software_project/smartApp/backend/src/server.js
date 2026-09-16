@@ -12,6 +12,7 @@ import environmentRoutes from "./routes/environment.routes.js";
 import studentsRoutes from "./routes/students.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
 import scheduleRoutes from "./routes/schedule.routes.js";
+import learningRoutes from "./routes/learning.routes.js";
 import aiTeacherRouter from "./routes/aiTeacher.js";
 import { startSensorSimulator } from "./sensors.js";
 
@@ -48,6 +49,7 @@ app.use("/api/environment", environmentRoutes);
 app.use("/api/students", studentsRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/schedule", scheduleRoutes);
+app.use("/api/learning", learningRoutes);
 app.use("/api/ai", aiTeacherRouter);
 
 /* ✅ Serve 3D Teacher static files */
@@ -55,8 +57,29 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // this points to: backend/public_teacher3d
+// Embedded by the Flutter AI-Teacher screen in an <iframe> served from a
+// different port, so relax helmet's frame-blocking headers for this path.
 app.use(
   "/teacher3d",
+  (req, res, next) => {
+    res.removeHeader("X-Frame-Options");
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        // 'wasm-unsafe-eval' + blob: for the Draco / meshopt decoders that
+        // Ready Player Me avatars need; *.readyplayer.me for the GLB downloads.
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https://*.readyplayer.me",
+        "media-src 'self' blob:",
+        "connect-src 'self' blob: https://*.readyplayer.me",
+        "worker-src 'self' blob:",
+        "frame-ancestors *",
+      ].join("; ")
+    );
+    next();
+  },
   express.static(path.join(__dirname, "..", "public_teacher3d"))
 );
 

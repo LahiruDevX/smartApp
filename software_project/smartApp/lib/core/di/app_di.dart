@@ -3,6 +3,8 @@ import '../../features/auth/auth_service.dart';
 import '../../features/environment/environment_service.dart';
 import '../../features/attendance/attendance_service.dart';
 import '../../features/schedule/schedule_service.dart';
+import '../../features/learning/learning_service.dart';
+import '../../features/admin/admin_service.dart';
 
 /// Backend base URL. Override at build/run time with:
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:4000
@@ -21,3 +23,7 @@ final EnvironmentService environmentService = EnvironmentService(apiClient);
 final AttendanceService attendanceService = AttendanceService(apiClient);
 
 final ScheduleService scheduleService = ScheduleService(apiClient);
+
+final LearningService learningService = LearningService(apiClient);
+
+final AdminService adminService = AdminService(apiClient);

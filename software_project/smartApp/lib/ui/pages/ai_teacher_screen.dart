@@ -1,14 +1,108 @@
-
-
 import 'package:flutter/material.dart';
-import 'app_shell.dart';
-import 'ai_chat_screen.dart';
 
-class AiTeacherScreen extends StatelessWidget {
+import '../../core/di/app_di.dart';
+import '../../features/learning/learning_service.dart';
+import 'app_shell.dart';
+
+class AiTeacherScreen extends StatefulWidget {
   const AiTeacherScreen({super.key});
+
+  @override
+  State<AiTeacherScreen> createState() => _AiTeacherScreenState();
+}
+
+class _AiTeacherScreenState extends State<AiTeacherScreen> {
+  bool _loading = true;
+  String? _error;
+  List<Subject> _subjects = const [];
+  List<ChatSession> _sessions = const [];
+  Map<String, TeacherInfo> _teachers = const {};
 
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final o = await learningService.overview();
+      List<ChatSession> sessions = const [];
+      try {
+        sessions = await learningService.chatSessions();
+      } catch (_) {}
+      Map<String, TeacherInfo> teachers = const {};
+      try {
+        teachers = await learningService.teachers();
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _subjects = o.subjects;
+        _sessions = sessions;
+        _teachers = teachers;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  /// Opens the subject's classroom: its own teacher (3D avatar + chat).
+  Future<void> _openSubject(String subject) async {
+    await Navigator.pushNamed(context, '/ai-teacher-3d', arguments: subject);
+    _load(); // refresh Chat History after returning
+  }
+
+  // Visual identity per subject (name -> icon/colours). Falls back gracefully.
+  ({IconData icon, Color circle, Color bar}) _style(String name) {
+    switch (name) {
+      case 'Mathematics':
+        return (
+          icon: Icons.menu_book_outlined,
+          circle: const Color(0xFFDCEBFF),
+          bar: const Color(0xFF2563EB)
+        );
+      case 'Computer Science':
+        return (
+          icon: Icons.code_rounded,
+          circle: const Color(0xFFDDFBE7),
+          bar: const Color(0xFF16A34A)
+        );
+      case 'Science':
+        return (
+          icon: Icons.science_outlined,
+          circle: const Color(0xFFF1E8FF),
+          bar: const Color(0xFF7C3AED)
+        );
+      case 'Languages':
+        return (
+          icon: Icons.public,
+          circle: const Color(0xFFFFF0D6),
+          bar: const Color(0xFFF59E0B)
+        );
+      case 'History':
+        return (
+          icon: Icons.access_time_rounded,
+          circle: const Color(0xFFFFE1E1),
+          bar: const Color(0xFFEF4444)
+        );
+      default:
+        return (
+          icon: Icons.auto_stories_outlined,
+          circle: const Color(0xFFEAF1FF),
+          bar: const Color(0xFF2563EB)
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,167 +113,211 @@ class AiTeacherScreen extends StatelessWidget {
       subtitle:
           'Your personalized learning companion for interactive education',
       selectedRoute: '/ai-teacher',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Choose a Subject',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          _Grid(
-            columns: cols,
-            children: [
-             _SubjectCard(
-  title: 'Mathematics',
-  icon: Icons.menu_book_outlined,
-  circleBg: const Color(0xFFDCEBFF),
-  barColor: const Color(0xFF2563EB),
-  levelText: 'Skill Level  7/10',
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AiChatScreen(subject: "Mathematics"),
-    ),
-  ),
-),
-_SubjectCard(
-  title: 'Computer\nScience',
-  icon: Icons.code_rounded,
-  circleBg: const Color(0xFFDDFBE7),
-  barColor: const Color(0xFF16A34A),
-  levelText: 'Skill Level  6/10',
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AiChatScreen(subject: "Computer Science"),
-    ),
-  ),
-),
-_SubjectCard(
-  title: 'Science',
-  icon: Icons.science_outlined,
-  circleBg: const Color(0xFFF1E8FF),
-  barColor: const Color(0xFF7C3AED),
-  levelText: 'Skill Level  5/10',
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AiChatScreen(subject: "Science"),
-    ),
-  ),
-),
-_SubjectCard(
-  title: 'Languages',
-  icon: Icons.public,
-  circleBg: const Color(0xFFFFF0D6),
-  barColor: const Color(0xFFF59E0B),
-  levelText: 'Skill Level  0/10',
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AiChatScreen(subject: "Languages"),
-    ),
-  ),
-),
-_SubjectCard(
-  title: 'History',
-  icon: Icons.access_time_rounded,
-  circleBg: const Color(0xFFFFE1E1),
-  barColor: const Color(0xFFEF4444),
-  levelText: 'Skill Level  0/10',
-  onTap: () => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AiChatScreen(subject: "History"),
-    ),
-  ),
-),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _TwoCardsRow(
-            left: _CardSection(
-              title: 'Your Progress',
-              trailing: Icon(Icons.trending_up,
-                  color: Colors.black.withOpacity(0.55)),
-              child: Column(
-                children: const [
-                  _ProgressRow(
-                    label: 'Mathematics',
-                    rightText: '4 hrs 0 mins',
-                    value: 0.72,
-                    color: Color(0xFF2563EB),
-                  ),
-                  SizedBox(height: 14),
-                  _ProgressRow(
-                    label: 'Computer Science',
-                    rightText: '3 hrs 0 mins',
-                    value: 0.58,
-                    color: Color(0xFF2563EB),
-                  ),
-                  SizedBox(height: 14),
-                  _ProgressRow(
-                    label: 'Science',
-                    rightText: '2 hrs 0 mins',
-                    value: 0.42,
-                    color: Color(0xFF2563EB),
-                  ),
-                  SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'View Detailed Progress',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF2563EB),
-                      ),
+      body: _loading
+          ? const SizedBox(
+              height: 300, child: Center(child: CircularProgressIndicator()))
+          : _error != null
+              ? SizedBox(
+                  height: 300,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Could not load subjects\n$_error',
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                            onPressed: _load, child: const Text('Retry')),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            right: _CardSection(
-              title: 'Recommended Lessons',
-              trailing: Icon(Icons.auto_awesome,
-                  color: const Color(0xFF7C3AED).withOpacity(0.85)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'No recommended lessons at this time. Start by\nexploring a subject!',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black.withOpacity(0.55),
-                        fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 44,
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B3DFF),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        textStyle: const TextStyle(
-                            fontWeight: FontWeight.w900, fontSize: 13),
-                      ),
-                      child: const Text('Explore All Lessons'),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Meet3dTeacherBanner(
+                      onTap: () => _openSubject('General'),
                     ),
-                  )
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+                    const SizedBox(height: 16),
+                    const Text('Choose a Subject',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 12),
+                    _Grid(
+                      columns: cols,
+                      children: [
+                        for (final s in _subjects)
+                          _SubjectCard(
+                            title: s.name,
+                            teacher: _teachers[s.name],
+                            icon: _style(s.name).icon,
+                            circleBg: _style(s.name).circle,
+                            barColor: _style(s.name).bar,
+                            skillLevel: s.skillLevel,
+                            onTap: () => _openSubject(s.name),
+                          ),
+                      ],
+                    ),
+                    if (_sessions.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _CardSection(
+                        title: 'Chat History',
+                        trailing: Icon(Icons.history,
+                            color: Colors.black.withOpacity(0.55)),
+                        child: Column(
+                          children: [
+                            for (final cs in _sessions)
+                              _SessionRow(
+                                session: cs,
+                                onTap: () => _openSubject(cs.subject),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    _TwoCardsRow(
+                      left: _CardSection(
+                        title: 'Your Progress',
+                        trailing: Icon(Icons.trending_up,
+                            color: Colors.black.withOpacity(0.55)),
+                        child: Column(
+                          children: [
+                            for (final s in _subjects
+                                .where((s) => s.studyMinutes > 0)
+                                .take(4)) ...[
+                              _ProgressRow(
+                                label: s.name,
+                                rightText: s.studyLabel,
+                                value: s.skillFraction,
+                                color: _style(s.name).bar,
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                            if (_subjects.every((s) => s.studyMinutes == 0))
+                              Text('No study time logged yet.',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black.withOpacity(0.55))),
+                            Align(
+                              alignment: Alignment.center,
+                              child: TextButton(
+                                onPressed: () =>
+                                    Navigator.pushNamed(context, '/progress'),
+                                child: const Text(
+                                  'View Detailed Progress',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      right: _CardSection(
+                        title: 'Recommended Lessons',
+                        trailing: Icon(Icons.auto_awesome,
+                            color: const Color(0xFF7C3AED).withOpacity(0.85)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _recommendation(),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black.withOpacity(0.55),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              height: 44,
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.pushNamed(
+                                    context, '/learning'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF8B3DFF),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13),
+                                ),
+                                child: const Text('Explore All Lessons'),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
     );
+  }
+
+  String _recommendation() {
+    final weakest = [..._subjects]..sort((a, b) => a.skillLevel.compareTo(b.skillLevel));
+    if (weakest.isEmpty) return 'Start by exploring a subject!';
+    final s = weakest.first;
+    return 'Focus area: ${s.name} (skill ${s.skillLevel.toStringAsFixed(0)}/10). '
+        'Open it to start a guided session.';
   }
 }
 
 /* ---------------- helpers ---------------- */
+
+class _Meet3dTeacherBanner extends StatelessWidget {
+  const _Meet3dTeacherBanner({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.view_in_ar_rounded,
+                  color: Colors.white, size: 34),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Meet your 3D AI Teacher',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900)),
+                    SizedBox(height: 3),
+                    Text('Each subject below has its own teacher. Tap one to enter their classroom, or start here with the general tutor.',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _Grid extends StatelessWidget {
   const _Grid({required this.columns, required this.children});
@@ -189,7 +327,7 @@ class _Grid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, c) {
-      final spacing = 14.0;
+      const spacing = 14.0;
       final w = c.maxWidth;
       final itemW = (w - (columns - 1) * spacing) / columns;
 
@@ -282,15 +420,17 @@ class _SubjectCard extends StatelessWidget {
     required this.icon,
     required this.circleBg,
     required this.barColor,
-    required this.levelText,
+    required this.skillLevel,
     required this.onTap,
+    this.teacher,
   });
 
   final String title;
+  final TeacherInfo? teacher; // the subject's named teacher, if any
   final IconData icon;
   final Color circleBg;
   final Color barColor;
-  final String levelText;
+  final double skillLevel; // 0..10
   final VoidCallback onTap;
 
   @override
@@ -301,7 +441,7 @@ class _SubjectCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          height: 150,
+          constraints: const BoxConstraints(minHeight: 158),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -316,6 +456,7 @@ class _SubjectCard extends StatelessWidget {
             ],
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -327,10 +468,31 @@ class _SubjectCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w900)),
-              const Spacer(),
-              Text(levelText,
+              if (teacher != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.view_in_ar_rounded,
+                        size: 14, color: teacher!.accent),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(teacher!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black.withOpacity(0.65))),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              Text('Skill Level  ${skillLevel.toStringAsFixed(0)}/10',
                   style: TextStyle(
                       fontSize: 11.5,
                       color: Colors.black.withOpacity(0.55),
@@ -339,7 +501,7 @@ class _SubjectCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
-                  value: _parseSkill(levelText),
+                  value: (skillLevel / 10).clamp(0, 1).toDouble(),
                   minHeight: 6,
                   backgroundColor: const Color(0xFFE5E7EB),
                   valueColor: AlwaysStoppedAnimation(barColor),
@@ -351,17 +513,61 @@ class _SubjectCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  double _parseSkill(String t) {
-    // "Skill Level  7/10"
-    final parts = t.split(' ');
-    final frac = parts.isNotEmpty ? parts.last : '0/10';
-    final nums = frac.split('/');
-    if (nums.length != 2) return 0;
-    final a = double.tryParse(nums[0]) ?? 0;
-    final b = double.tryParse(nums[1]) ?? 10;
-    if (b == 0) return 0;
-    return (a / b).clamp(0, 1);
+class _SessionRow extends StatelessWidget {
+  const _SessionRow({required this.session, required this.onTap});
+  final ChatSession session;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.chat_bubble_outline,
+                size: 18, color: Color(0xFF2563EB)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(session.subject,
+                      style: const TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 2),
+                  Text(
+                    session.lastMessage,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.black.withOpacity(0.55),
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('${session.count} msg',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black.withOpacity(0.45))),
+            const Icon(Icons.chevron_right, size: 18, color: Colors.black38),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -400,7 +606,7 @@ class _ProgressRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: value,
             minHeight: 8,
-            backgroundColor: const Color(0xFF1F2937),
+            backgroundColor: const Color(0xFFE5E7EB),
             valueColor: AlwaysStoppedAnimation(color),
           ),
         ),

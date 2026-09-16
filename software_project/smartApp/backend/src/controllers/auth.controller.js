@@ -97,6 +97,86 @@ export async function login(req, res) {
   }
 }
 
+/** Admin-only: create a teacher or student account from the User Management page. */
+export async function createUser(req, res) {
+  try {
+    const { email, password, role } = req.body;
+
+    if (!email || !password || !role) {
+      return res
+        .status(400)
+        .json({ message: "email, password and role are required" });
+    }
+    if (typeof email !== "string" || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ message: "Enter a valid email address" });
+    }
+    if (typeof password !== "string" || password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
+    }
+    if (!SELF_SIGNUP_ROLES.includes(role)) {
+      return res.status(400).json({ message: "Role must be student or teacher" });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: { email, password: hashed, role },
+      select: { id: true, email: true, role: true, createdAt: true },
+    });
+
+    return res.status(201).json({ message: "User created", user });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+/** Admin-only: remove an account. Admins cannot delete their own account. */
+export async function deleteUser(req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+    if (id === req.user.id) {
+      return res.status(400).json({ message: "You cannot delete your own account" });
+    }
+
+    await prisma.user.delete({ where: { id } });
+    return res.json({ message: "User deleted" });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+/** Admin-only: every account plus a per-role count, for the User Management page. */
+export async function listUsers(req, res) {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const counts = { admin: 0, teacher: 0, student: 0 };
+    for (const u of users) {
+      if (counts[u.role] !== undefined) counts[u.role] += 1;
+    }
+    return res.json({ users, counts, total: users.length });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
 /** Protected: returns the current user based on the bearer token. */
 export async function me(req, res) {
   try {

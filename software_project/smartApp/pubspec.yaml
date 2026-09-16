@@ -24,3 +24,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/classroom_bg.jpg
+    - assets/images/classroom_blue_bg.jpg

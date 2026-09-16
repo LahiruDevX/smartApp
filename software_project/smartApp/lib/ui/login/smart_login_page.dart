@@ -140,7 +140,8 @@ class _SmartLoginPageState extends State<SmartLoginPage> {
     const primaryBlue = Color(0xFF2D66F6);
 
     return Scaffold(
-      body: AuthBackground(
+      body: _LoginBackground(
+        role: widget.role,
         child: SafeArea(
           child: Align(
             alignment: const Alignment(0, -0.7),
@@ -353,6 +354,30 @@ class _SmartLoginPageState extends State<SmartLoginPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The admin login screen uses the real classroom photo as its background;
+/// teacher/student logins keep the painted `AuthBackground` illustration.
+class _LoginBackground extends StatelessWidget {
+  const _LoginBackground({required this.role, required this.child});
+
+  final UserRole role;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (role != UserRole.admin) {
+      return AuthBackground(child: child);
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset('assets/images/classroom_blue_bg.jpg', fit: BoxFit.cover),
+        Container(color: const Color(0xFF0B2A4A).withOpacity(0.35)),
+        child,
+      ],
     );
   }
 }
