@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
+import '../../core/di/app_di.dart';
+import '../../features/environment/environment_service.dart';
 import 'app_shell.dart';
 
 class EnvironmentalScreen extends StatelessWidget {
@@ -16,121 +21,226 @@ class EnvironmentalScreen extends StatelessWidget {
   }
 }
 
-class _EnvironmentalBody extends StatelessWidget {
+class _EnvironmentalBody extends StatefulWidget {
   const _EnvironmentalBody();
 
+  @override
+  State<_EnvironmentalBody> createState() => _EnvironmentalBodyState();
+}
+
+class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
+
+  static final _bottomLabels = <double, String>{
+    0: '20m',
+    5: '15m',
+    10: '10m',
+    15: '5m',
+    20: 'now',
+  };
+
+  static const _order = ['temperature', 'humidity', 'air_quality', 'light', 'noise'];
+  static const _icons = {
+    'temperature': Icons.thermostat_outlined,
+    'humidity': Icons.water_drop_outlined,
+    'air_quality': Icons.air_outlined,
+    'light': Icons.wb_sunny_outlined,
+    'noise': Icons.volume_up_outlined,
+  };
+
+  bool _loading = true;
+  String? _error;
+  List<SensorReading> _sensors = const [];
+  Map<String, List<SeriesPoint>> _history = const {};
+  DateTime? _updatedAt;
+  Timer? _autoRefresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _autoRefresh = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _load(silent: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final latest = await environmentService.latest();
+      final history = await environmentService.history(minutes: 20);
+      if (!mounted) return;
+      setState(() {
+        _sensors = latest.sensors;
+        _history = history;
+        _updatedAt = latest.updatedAt ?? DateTime.now();
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted || silent) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  String _hms(DateTime dt) {
+    final t = dt.toLocal();
+    String p(int n) => n.toString().padLeft(2, '0');
+    return '${p(t.hour)}:${p(t.minute)}:${p(t.second)}';
+  }
+
+  LineChartBarData _line(String type, Color color) => LineChartBarData(
+        isCurved: true,
+        dotData: const FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+        barWidth: 2.5,
+        color: color,
+        spots: (_history[type] ?? const [])
+            .map((p) => FlSpot(p.t, p.value))
+            .toList(),
+      );
+
+  (double, double) _bounds(List<String> types) {
+    final values = [
+      for (final t in types) ...(_history[t] ?? const []).map((p) => p.value),
+    ];
+    if (values.isEmpty) return (0, 100);
+    var lo = values.reduce((a, b) => a < b ? a : b);
+    var hi = values.reduce((a, b) => a > b ? a : b);
+    final pad = ((hi - lo) * 0.15).clamp(1.0, double.infinity);
+    lo = (lo - pad).floorToDouble();
+    hi = (hi + pad).ceilToDouble();
+    return (lo, hi);
+  }
 
   @override
   Widget build(BuildContext context) {
     final columns = _wide(context) ? 3 : (_mid(context) ? 2 : 1);
 
-    // Example bottom labels for last 20 minutes
-    final bottomLabels = <double, String>{
-      0: '20m',
-      5: '15m',
-      10: '10m',
-      15: '5m',
-      20: 'now',
-    };
-
-    // Example data (replace later with real data)
-    final tempLine = LineChartBarData(
-      isCurved: true,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: false),
-      barWidth: 2.5,
-      color: const Color(0xFF2D66F6),
-      spots: const [
-        FlSpot(0, 22.5),
-        FlSpot(5, 22.8),
-        FlSpot(10, 23.2),
-        FlSpot(15, 23.7),
-        FlSpot(20, 24.1),
-      ],
-    );
-
-    final humLine = LineChartBarData(
-      isCurved: true,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: false),
-      barWidth: 2.5,
-      color: const Color(0xFF16A34A),
-      spots: const [
-        FlSpot(0, 52),
-        FlSpot(5, 50),
-        FlSpot(10, 49),
-        FlSpot(15, 48),
-        FlSpot(20, 47),
-      ],
-    );
-
-    final airLine = LineChartBarData(
-      isCurved: true,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(show: false),
-      barWidth: 2.5,
-      color: const Color(0xFFF59E0B),
-      spots: const [
-        FlSpot(0, 360),
-        FlSpot(5, 372),
-        FlSpot(10, 385),
-        FlSpot(15, 392),
-        FlSpot(20, 378),
-      ],
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Grid(columns: columns, children: const [
-          _MiniMetric(title: 'temperature', value: '22.5', unit: '°C'),
-          _MiniMetric(title: 'humidity', value: '55.6', unit: '%'),
-          _MiniMetric(title: 'air Quality', value: '378.5', unit: 'PPM'),
-          _MiniMetric(title: 'light', value: '351.1', unit: 'Lux'),
-          _MiniMetric(title: 'noise', value: '46.2', unit: 'dB'),
-        ]),
-        const SizedBox(height: 16),
-
-        _CardSection(
-          title: 'Historical Data (Last 20 minutes)',
+    if (_loading) {
+      return const SizedBox(
+        height: 260,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return SizedBox(
+        height: 260,
+        child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 6),
-              const Text(
-                'Temperature & Humidity',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              _LineChartCard(
-                height: 220,
-                lines: [tempLine, humLine],
-                minX: 0,
-                maxX: 20,
-                minY: 0,
-                maxY: 100,
-                bottomLabels: bottomLabels,
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Air Quality',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              _LineChartCard(
-                height: 220,
-                lines: [airLine],
-                minX: 0,
-                maxX: 20,
-                minY: 300,
-                maxY: 500,
-                bottomLabels: bottomLabels,
-              ),
+              Text('Could not load environmental data\n$_error',
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(onPressed: _load, child: const Text('Retry')),
             ],
           ),
         ),
+      );
+    }
+
+    final byType = {for (final s in _sensors) s.type: s};
+    final metrics = [
+      for (final t in _order)
+        if (byType[t] != null)
+          _MiniMetric(
+            title: byType[t]!.label,
+            value: byType[t]!.value.toStringAsFixed(1),
+            unit: byType[t]!.unit,
+            status: byType[t]!.status,
+            icon: _icons[t]!,
+          ),
+    ];
+
+    final (thLo, thHi) = _bounds(['temperature', 'humidity']);
+    final (airLo, airHi) = _bounds(['air_quality']);
+
+    // AppShell already wraps the body in a scroll view, so use a plain Column.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+          Row(
+            children: [
+              const Icon(Icons.circle, size: 10, color: Color(0xFF16A34A)),
+              const SizedBox(width: 6),
+              Text(
+                _updatedAt == null
+                    ? 'Live'
+                    : 'Live · updated ${_hms(_updatedAt!)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black.withOpacity(0.55),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _load(),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Refresh'),
+              ),
+            ],
+          ),
+          _Grid(columns: columns, children: metrics),
+          const SizedBox(height: 16),
+          _CardSection(
+            title: 'Historical Data (Last 20 minutes)',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 6),
+                const Text(
+                  'Temperature & Humidity',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                _LineChartCard(
+                  height: 220,
+                  lines: [
+                    _line('temperature', const Color(0xFF2D66F6)),
+                    _line('humidity', const Color(0xFF16A34A)),
+                  ],
+                  minX: 0,
+                  maxX: 20,
+                  minY: thLo,
+                  maxY: thHi,
+                  bottomLabels: _bottomLabels,
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Air Quality',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                _LineChartCard(
+                  height: 220,
+                  lines: [_line('air_quality', const Color(0xFFF59E0B))],
+                  minX: 0,
+                  maxX: 20,
+                  minY: airLo,
+                  maxY: airHi,
+                  bottomLabels: _bottomLabels,
+                ),
+              ],
+            ),
+          ),
 
         const SizedBox(height: 16),
 
@@ -188,6 +298,7 @@ class _EnvironmentalBody extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -222,14 +333,20 @@ class _MiniMetric extends StatelessWidget {
     required this.title,
     required this.value,
     required this.unit,
+    this.status = 'normal',
+    this.icon,
   });
 
   final String title;
   final String value;
   final String unit;
+  final String status;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final warn = status.toLowerCase() == 'warning';
+    final statusColor = warn ? const Color(0xFFF59E0B) : const Color(0xFF16A34A);
     return Container(
       constraints: const BoxConstraints(minHeight: 92),
       padding: const EdgeInsets.all(14),
@@ -249,15 +366,25 @@ class _MiniMetric extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black.withOpacity(0.6),
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: Colors.black.withOpacity(0.45)),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black.withOpacity(0.6),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Row(
@@ -294,12 +421,12 @@ class _MiniMetric extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.circle, size: 10, color: Colors.green),
-              SizedBox(width: 8),
+            children: [
+              Icon(Icons.circle, size: 10, color: statusColor),
+              const SizedBox(width: 8),
               Text(
-                'normal',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                status,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ],
           ),
