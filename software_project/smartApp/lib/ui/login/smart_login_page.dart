@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/di/app_di.dart';
-import 'auth_background.dart';
 
 enum UserRole { admin, teacher, student }
 
@@ -358,8 +357,7 @@ class _SmartLoginPageState extends State<SmartLoginPage> {
   }
 }
 
-/// The admin login screen uses the real classroom photo as its background;
-/// teacher/student logins keep the painted `AuthBackground` illustration.
+/// All three login screens share the same real classroom photo background.
 class _LoginBackground extends StatelessWidget {
   const _LoginBackground({required this.role, required this.child});
 
@@ -368,9 +366,6 @@ class _LoginBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (role != UserRole.admin) {
-      return AuthBackground(child: child);
-    }
     return Stack(
       fit: StackFit.expand,
       children: [
