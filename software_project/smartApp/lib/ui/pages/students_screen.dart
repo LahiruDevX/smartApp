@@ -45,11 +45,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
   }
 
   Future<void> _addStudent() async {
-    final created = await showDialog<bool>(
+    final created = await showDialog<Student>(
       context: context,
       builder: (_) => const _AddStudentDialog(),
     );
-    if (created == true) _load();
+    if (created == null) return;
+
+    await _load();
+    if (!mounted) return;
+    await _enroll(created);
   }
 
   Future<void> _enroll(Student s) async {
@@ -282,12 +286,12 @@ class _AddStudentDialogState extends State<_AddStudentDialog> {
       _err = null;
     });
     try {
-      await attendanceService.createStudent(
+      final student = await attendanceService.createStudent(
         name: _name.text.trim(),
         studentCode: _code.text.trim(),
         email: _email.text.trim(),
       );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, student);
     } catch (e) {
       setState(() {
         _err = e.toString().replaceFirst('Exception: ', '');
@@ -331,7 +335,7 @@ class _AddStudentDialogState extends State<_AddStudentDialog> {
             child: const Text('Cancel')),
         FilledButton(
           onPressed: _saving ? null : _save,
-          child: Text(_saving ? 'Saving…' : 'Add'),
+          child: Text(_saving ? 'Saving…' : 'Add & Enroll Face'),
         ),
       ],
     );
