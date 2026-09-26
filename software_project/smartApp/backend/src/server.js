@@ -1,10 +1,15 @@
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import morgan from "morgan";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import sensorRoutes from "./routes/sensor.routes.js";
+
+import { setIO } from "./socket.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
@@ -19,6 +24,25 @@ import { startSensorSimulator } from "./sensors.js";
 dotenv.config();
 
 const app = express();
+
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+setIO(io);
+
+io.on("connection", (socket) => {
+  console.log(`Flutter client connected: ${socket.id}`);
+
+  socket.on("disconnect", () => {
+    console.log(`Flutter client disconnected: ${socket.id}`);
+  });
+});
 
 app.use(cors());
 app.use(
@@ -51,6 +75,7 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/learning", learningRoutes);
 app.use("/api/ai", aiTeacherRouter);
+app.use("/api/sensors", sensorRoutes);
 
 /* ✅ Serve 3D Teacher static files */
 const __filename = fileURLToPath(import.meta.url);
@@ -115,7 +140,7 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  startSensorSimulator();
+  //startSensorSimulator();
 });

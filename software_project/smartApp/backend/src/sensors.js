@@ -5,6 +5,7 @@
 // one reading per sensor type every 20 seconds. The API just reads that table.
 
 import pool from "./db.js";
+import { getIO } from "./socket.js";
 
 export const SENSORS = {
   temperature: { unit: "°C", base: 24, spread: 1.6, warnAbove: 26 },
@@ -34,11 +35,28 @@ function nextValue(type, prev) {
 
 async function insert(type, value, createdAt) {
   const { unit } = SENSORS[type];
-  await pool.query(
+  const status = statusFor(type, value);
+
+  const result = await pool.query(
     `INSERT INTO sensor_readings (type, value, unit, status, created_at)
-     VALUES ($1, $2, $3, $4, COALESCE($5, now()))`,
-    [type, value, unit, statusFor(type, value), createdAt ?? null]
+     VALUES ($1, $2, $3, $4, COALESCE($5, now()))
+     RETURNING type, value, unit, status, created_at`,
+    [type, value, unit, status, createdAt ?? null]
   );
+
+  const reading = result.rows[0];
+
+  const io = getIO();
+
+  if (io && !createdAt) {
+    io.emit("sensorData", {
+      type: reading.type,
+      value: Number(reading.value),
+      unit: reading.unit,
+      status: reading.status,
+      updatedAt: reading.created_at,
+    });
+  }
 }
 
 async function lastValue(type) {
