@@ -2,7 +2,7 @@
 //
 // There is no real IoT hardware wired to this project, so this module keeps the
 // `sensor_readings` table populated with believable, slowly-drifting values:
-// one reading per sensor type every minute. The API just reads that table.
+// one reading per sensor type every 20 seconds. The API just reads that table.
 
 import pool from "./db.js";
 

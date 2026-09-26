@@ -14,3 +14,64 @@ model User {
   role      String   @default("admin") // admin, teacher, student
   createdAt DateTime @default(now())
 }
+
+model SensorReading {
+  id        Int      @id @default(autoincrement())
+  type      String
+  value     Float
+  unit      String
+  status    String   @default("normal")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([type, createdAt(sort: Desc)], map: "sensor_readings_type_time")
+  @@map("sensor_readings")
+}
+
+model Device {
+  id          String   @id
+  title       String
+  type        String   @map("device_type")
+  isOn        Boolean  @default(false) @map("is_on")
+  sliderValue Int?     @map("slider_value")
+  online      Boolean  @default(true)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("devices")
+}
+
+model Student {
+  id              Int                @id @default(autoincrement())
+  name            String
+  studentCode     String             @unique @map("student_code")
+  email           String?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  faceDescriptors FaceDescriptor[]
+  attendance      AttendanceRecord[]
+
+  @@map("students")
+}
+
+model FaceDescriptor {
+  id         Int      @id @default(autoincrement())
+  studentId  Int      @map("student_id")
+  descriptor Float[]
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId], map: "face_descriptors_student")
+  @@map("face_descriptors")
+}
+
+model AttendanceRecord {
+  id          Int      @id @default(autoincrement())
+  studentId   Int      @map("student_id")
+  method      String   @default("facial")
+  status      String   @default("present")
+  sessionDate DateTime @default(now()) @map("session_date") @db.Date
+  recordedAt  DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, sessionDate])
+  @@index([sessionDate], map: "attendance_records_date")
+  @@map("attendance_records")
+}

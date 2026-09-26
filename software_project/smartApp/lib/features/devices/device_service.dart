@@ -13,14 +13,15 @@ class DeviceService {
         .toList();
   }
 
-  Future<void> updateDevice({
+  Future<DeviceModel> updateDevice({
     required String id,
     required bool isOn,
     int? sliderValue,
   }) async {
-    await api.patchAuthed('/api/devices/$id', {
+    final res = await api.patchAuthed('/api/devices/$id', {
       'isOn': isOn,
-      'sliderValue': sliderValue,
+      if (sliderValue != null) 'sliderValue': sliderValue,
     });
+    return DeviceModel.fromJson(res['device'] as Map<String, dynamic>);
   }
 }
