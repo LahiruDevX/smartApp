@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../../core/di/app_di.dart';
 import '../../features/environment/environment_service.dart';
@@ -65,6 +66,9 @@ class _EnvironmentalBody extends StatefulWidget {
 }
 
 class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
+  IO.Socket? _socket;
+  bool _socketConnected = false;
+
   bool _initialLoading = true;
   bool _refreshing = false;
   String? _latestError;
@@ -82,6 +86,7 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
   void initState() {
     super.initState();
     _refresh();
+    _connectSocket();
     _autoRefresh = Timer.periodic(
       const Duration(seconds: 20),
       (_) => _refresh(silent: true),
@@ -91,6 +96,8 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
   @override
   void dispose() {
     _autoRefresh?.cancel();
+    _socket?.disconnect();
+    _socket?.dispose();
     super.dispose();
   }
 
@@ -182,8 +189,83 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
   }
 
   bool get _isLive {
-    if (_updatedAt == null || _latestError != null) return false;
-    return DateTime.now().difference(_updatedAt!.toLocal()).inMinutes < 2;
+    return _socketConnected && _updatedAt != null && _latestError == null;
+  }
+
+  void _connectSocket() {
+    final socket = IO.io(
+      'http://localhost:4000',
+      IO.OptionBuilder()
+          .setTransports(['websocket'])
+          .disableAutoConnect()
+          .build(),
+    );
+
+    _socket = socket;
+
+    socket.onConnect((_) {
+      debugPrint('Socket.IO connected: ${socket.id}');
+
+      if (mounted) {
+        setState(() {
+          _socketConnected = true;
+        });
+      }
+    });
+
+    socket.onDisconnect((_) {
+      debugPrint('Socket.IO disconnected');
+
+      if (mounted) {
+        setState(() {
+          _socketConnected = false;
+        });
+      }
+    });
+
+    socket.onConnectError((error) {
+      debugPrint('Socket.IO connection error: $error');
+
+      if (mounted) {
+        setState(() {
+          _socketConnected = false;
+        });
+      }
+    });
+
+    socket.on('sensorData', (data) {
+      debugPrint('Live sensor data received: $data');
+
+      if (data is! Map) return;
+
+      try {
+        final reading = SensorReading.fromJson(
+          Map<String, dynamic>.from(data),
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          final updated = [..._sensors];
+          final index =
+              updated.indexWhere((sensor) => sensor.type == reading.type);
+
+          if (index >= 0) {
+            updated[index] = reading;
+          } else {
+            updated.add(reading);
+          }
+
+          _sensors = updated;
+          _updatedAt = reading.updatedAt ?? DateTime.now();
+          _latestError = null;
+        });
+      } catch (error) {
+        debugPrint('Invalid live sensor data: $error');
+      }
+    });
+
+    socket.connect();
   }
 
   @override
