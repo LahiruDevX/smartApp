@@ -300,10 +300,22 @@ class _AttendanceTable extends StatelessWidget {
                                   fontWeight: FontWeight.w800))),
                       Expanded(
                           flex: 22,
-                          child: Text(r.name,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700))),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.name,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700)),
+                              if (r.classTitle != null)
+                                Text(r.classTitle!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.black.withOpacity(0.5))),
+                            ],
+                          )),
                       Expanded(
                           flex: 18,
                           child: Text(_time(r.time),

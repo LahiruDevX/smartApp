@@ -6,9 +6,19 @@ class Booking {
     required this.title,
     required this.teacher,
     required this.room,
-    required this.weekday, // 1 = Mon … 5 = Fri
-    required this.startHour, // 24h
-    required this.endHour,
+    required this.weekday,
+    required this.startMinute,
+    required this.endMinute,
+    required this.enabled,
+    required this.automationEnabled,
+    required this.fanMode,
+    required this.fanSpeed,
+    required this.targetTemperature,
+    required this.lightOn,
+    required this.lightBrightness,
+    required this.attendanceEnabled,
+    required this.attendanceGraceMinutes,
+    required this.state,
   });
 
   final int id;
@@ -16,20 +26,62 @@ class Booking {
   final String teacher;
   final String room;
   final int weekday;
-  final int startHour;
-  final int endHour;
+  final int startMinute;
+  final int endMinute;
+  final bool enabled;
+  final bool automationEnabled;
+  final String fanMode;
+  final int fanSpeed;
+  final double targetTemperature;
+  final bool lightOn;
+  final int lightBrightness;
+  final bool attendanceEnabled;
+  final int attendanceGraceMinutes;
+  final String state;
 
-  int get durationHours => (endHour - startHour).clamp(1, 12);
+  int get startHour => startMinute ~/ 60;
+  int get endHour => (endMinute / 60).ceil();
+  int get durationMinutes => endMinute - startMinute;
 
-  factory Booking.fromJson(Map<String, dynamic> j) => Booking(
-        id: (j['id'] as num).toInt(),
-        title: j['title'] as String,
-        teacher: j['teacher'] as String,
-        room: (j['room'] ?? 'Room 301') as String,
-        weekday: (j['weekday'] as num).toInt(),
-        startHour: (j['startHour'] as num).toInt(),
-        endHour: (j['endHour'] as num).toInt(),
+  factory Booking.fromJson(Map<String, dynamic> json) => Booking(
+        id: (json['id'] as num).toInt(),
+        title: json['title'] as String,
+        teacher: json['teacher'] as String,
+        room: (json['room'] ?? 'Room 301') as String,
+        weekday: (json['weekday'] as num).toInt(),
+        startMinute: (json['startMinute'] as num).toInt(),
+        endMinute: (json['endMinute'] as num).toInt(),
+        enabled: json['enabled'] != false,
+        automationEnabled: json['automationEnabled'] != false,
+        fanMode: (json['fanMode'] ?? 'auto') as String,
+        fanSpeed: (json['fanSpeed'] as num?)?.toInt() ?? 2,
+        targetTemperature:
+            (json['targetTemperature'] as num?)?.toDouble() ?? 26,
+        lightOn: json['lightOn'] != false,
+        lightBrightness: (json['lightBrightness'] as num?)?.toInt() ?? 80,
+        attendanceEnabled: json['attendanceEnabled'] != false,
+        attendanceGraceMinutes:
+            (json['attendanceGraceMinutes'] as num?)?.toInt() ?? 10,
+        state: (json['state'] ?? 'scheduled') as String,
       );
+
+  Map<String, dynamic> toRequest() => {
+        'title': title,
+        'teacher': teacher,
+        'room': room,
+        'weekday': weekday,
+        'startMinute': startMinute,
+        'endMinute': endMinute,
+        'enabled': enabled,
+        'automationEnabled': automationEnabled,
+        'fanMode': fanMode,
+        'fanSpeed': fanSpeed,
+        'targetTemperature': targetTemperature,
+        'lightOn': lightOn,
+        'lightBrightness': lightBrightness,
+        'attendanceEnabled': attendanceEnabled,
+        'attendanceGraceMinutes': attendanceGraceMinutes,
+      };
 }
 
 class ScheduleService {
@@ -37,30 +89,24 @@ class ScheduleService {
   final ApiClient api;
 
   Future<List<Booking>> bookings() async {
-    final res = await api.getAuthed('/api/schedule');
-    return ((res['bookings'] as List?) ?? const [])
-        .map((e) => Booking.fromJson(e as Map<String, dynamic>))
+    final response = await api.getAuthed('/api/schedule');
+    return ((response['bookings'] as List?) ?? const [])
+        .map((item) => Booking.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
-  Future<Booking> create({
-    required String title,
-    required String teacher,
-    required String room,
-    required int weekday,
-    required int startHour,
-    required int endHour,
-  }) async {
-    final res = await api.postAuthed('/api/schedule', {
-      'title': title,
-      'teacher': teacher,
-      'room': room,
-      'weekday': weekday,
-      'startHour': startHour,
-      'endHour': endHour,
-    });
-    return Booking.fromJson(res['booking'] as Map<String, dynamic>);
+  Future<Booking> create(Map<String, dynamic> data) async {
+    final response = await api.postAuthed('/api/schedule', data);
+    return Booking.fromJson(response['booking'] as Map<String, dynamic>);
   }
+
+  Future<Booking> update(int id, Map<String, dynamic> data) async {
+    final response = await api.patchAuthed('/api/schedule/$id', data);
+    return Booking.fromJson(response['booking'] as Map<String, dynamic>);
+  }
+
+  Future<Map<String, dynamic>> syncAutomation() =>
+      api.postAuthed('/api/schedule/automation/sync', const {});
 
   Future<void> delete(int id) => api.deleteAuthed('/api/schedule/$id');
 }

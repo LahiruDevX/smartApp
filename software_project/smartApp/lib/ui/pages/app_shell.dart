@@ -251,11 +251,6 @@ class _Sidebar extends StatelessWidget {
               label: 'Analytics',
               selected: selectedRoute == '/analytics',
               onTap: () => onNavigate('/analytics')),
-          _NavItem(
-              icon: Icons.calendar_month_outlined,
-              label: 'Schedule',
-              selected: selectedRoute == '/schedule',
-              onTap: () => onNavigate('/schedule')),
           const SizedBox(height: 18),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -699,7 +694,7 @@ class _Sidebar extends StatelessWidget {
           if (allowed('/schedule'))
             _NavItem(
               icon: Icons.calendar_month_outlined,
-              label: 'Schedule',
+              label: 'Smart Schedule',
               selected: selectedRoute == '/schedule',
               onTap: () => onNavigate('/schedule'),
             ),
@@ -780,8 +775,7 @@ class _Sidebar extends StatelessWidget {
                           children: [
                             Text('Smart Classroom',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14)),
+                                    fontWeight: FontWeight.w800, fontSize: 14)),
                             SizedBox(height: 2),
                             Text('IoT Management',
                                 style: TextStyle(
@@ -793,9 +787,7 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-
                 ...opsItems,
-
                 if (aiItems.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Padding(
@@ -815,7 +807,6 @@ class _Sidebar extends StatelessWidget {
                   const SizedBox(height: 10),
                   ...aiItems,
                 ],
-
                 const SizedBox(height: 18),
                 Padding(
                   padding: const EdgeInsets.all(14),
@@ -825,8 +816,7 @@ class _Sidebar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFFEAF1FF),
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: Colors.black.withOpacity(0.05)),
+                      border: Border.all(color: Colors.black.withOpacity(0.05)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
