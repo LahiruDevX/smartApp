@@ -70,8 +70,33 @@ model AttendanceRecord {
   sessionDate DateTime @default(now()) @map("session_date") @db.Date
   recordedAt  DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
   student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bookingId   Int?     @map("booking_id")
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, sessionDate])
   @@index([sessionDate], map: "attendance_records_date")
   @@map("attendance_records")
+}
+
+model Booking {
+  id                     Int      @id @default(autoincrement())
+  title                  String
+  teacher                String
+  room                   String   @default("Room 301")
+  weekday                Int
+  startMinute            Int      @map("start_minute")
+  endMinute              Int      @map("end_minute")
+  enabled                Boolean  @default(true)
+  automationEnabled      Boolean  @default(true) @map("automation_enabled")
+  fanMode                String   @default("auto") @map("fan_mode")
+  fanSpeed               Int      @default(2) @map("fan_speed")
+  targetTemperature      Float    @default(26) @map("target_temperature")
+  lightOn                Boolean  @default(true) @map("light_on")
+  lightBrightness        Int      @default(80) @map("light_brightness")
+  attendanceEnabled      Boolean  @default(true) @map("attendance_enabled")
+  attendanceGraceMinutes Int      @default(10) @map("attendance_grace_minutes")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendance             AttendanceRecord[]
+
+  @@index([weekday, startMinute, endMinute], map: "bookings_day_time")
+  @@map("bookings")
 }

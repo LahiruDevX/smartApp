@@ -16,7 +16,7 @@ import deviceRoutes from "./routes/device.routes.js";
 import environmentRoutes from "./routes/environment.routes.js";
 import studentsRoutes from "./routes/students.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
-import scheduleRoutes from "./routes/schedule.routes.js";
+import scheduleRoutes, { startScheduleAutomation } from "./routes/schedule.routes.js";
 import learningRoutes from "./routes/learning.routes.js";
 import aiTeacherRouter from "./routes/aiTeacher.js";
 import { startSensorSimulator } from "./sensors.js";
@@ -142,5 +142,6 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  //startSensorSimulator();
+  // Sensor readings arrive through the real-time sensor endpoint on main.
+  startScheduleAutomation();
 });
