@@ -33,6 +33,7 @@ class AttendanceRecord {
     required this.method,
     required this.status,
     required this.time,
+    this.classTitle,
   });
 
   final String studentCode;
@@ -40,6 +41,7 @@ class AttendanceRecord {
   final String method; // facial | rfid | manual
   final String status; // present | late
   final DateTime? time;
+  final String? classTitle;
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> j) => AttendanceRecord(
         studentCode: j['studentCode'] as String,
@@ -47,6 +49,7 @@ class AttendanceRecord {
         method: (j['method'] ?? 'facial') as String,
         status: (j['status'] ?? 'present') as String,
         time: j['time'] == null ? null : DateTime.tryParse(j['time'] as String),
+        classTitle: j['classTitle'] as String?,
       );
 }
 
@@ -61,7 +64,8 @@ class AttendanceSummary {
 
   final int total, present, late, absent, rate;
 
-  factory AttendanceSummary.fromJson(Map<String, dynamic> j) => AttendanceSummary(
+  factory AttendanceSummary.fromJson(Map<String, dynamic> j) =>
+      AttendanceSummary(
         total: (j['total'] as num).toInt(),
         present: (j['present'] as num).toInt(),
         late: (j['late'] as num).toInt(),
@@ -100,8 +104,7 @@ class AttendanceService {
     return Student.fromJson(res['student'] as Map<String, dynamic>);
   }
 
-  Future<void> deleteStudent(int id) =>
-      api.deleteAuthed('/api/students/$id');
+  Future<void> deleteStudent(int id) => api.deleteAuthed('/api/students/$id');
 
   Future<void> clearFaces(int id) =>
       api.deleteAuthed('/api/students/$id/faces');
