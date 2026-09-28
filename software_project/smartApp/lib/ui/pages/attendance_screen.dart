@@ -203,7 +203,7 @@ class _CameraCard extends StatelessWidget {
         label: Text(on ? 'Stop' : 'Start Camera'),
       ),
       child: Container(
-        height: 300,
+        height: MediaQuery.sizeOf(context).width >= 680 ? 500 : 360,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: const Color(0xFF0B1220),
