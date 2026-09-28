@@ -8,6 +8,8 @@ import 'teacher3d_view_stub.dart'
 /// [Teacher3dView.onMessage] as `{type: 'answer', ...}`).
 class Teacher3dController {
   void Function(Map<String, dynamic> message)? _send;
+  void Function(String text)? _speak;
+  void Function(String gender)? _onGenderChanged;
 
   /// True once the web view is mounted; false on platforms without the iframe.
   bool get isAttached => _send != null;
@@ -16,11 +18,26 @@ class Teacher3dController {
       _send?.call({'type': 'ask', 'question': question});
 
   /// Switches the avatar's character: 'female' or 'male'.
-  void setGender(String gender) =>
-      _send?.call({'type': 'setGender', 'gender': gender});
+  void setGender(String gender) {
+    _send?.call({'type': 'setGender', 'gender': gender});
+    _onGenderChanged?.call(gender);
+  }
 
   /// Called by the platform view; not for screens.
   void attach(void Function(Map<String, dynamic>)? send) => _send = send;
+
+  /// Speaks [text] out loud. No-op on web (the iframe speaks its own
+  /// replies); the native avatar uses this to drive on-device TTS + lip-sync.
+  void speak(String text) => _speak?.call(text);
+
+  /// Called by the native avatar view; not for screens.
+  void attachNative({
+    void Function(String text)? speak,
+    void Function(String gender)? onGenderChanged,
+  }) {
+    _speak = speak;
+    _onGenderChanged = onGenderChanged;
+  }
 }
 
 /// Embeds the backend's `/teacher3d` page (three.js avatar + AI chat) in an
