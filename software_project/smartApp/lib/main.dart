@@ -22,6 +22,9 @@ import 'ui/pages/analytics_screen.dart';
 import 'ui/pages/schedule_screen.dart';
 import 'ui/pages/students_screen.dart';
 import 'ui/pages/admin_users_screen.dart';
+import 'ui/pages/notice_board_screen.dart';
+import 'ui/pages/materials_screen.dart';
+import 'ui/pages/quizzes_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -87,6 +90,10 @@ class MyApp extends StatelessWidget {
             _roleGuarded('/ai-management', const AiManagementScreen()),
         '/admin-users': (_) =>
             _roleGuarded('/admin-users', const AdminUsersScreen()),
+        '/notices': (_) => _roleGuarded('/notices', const NoticeBoardScreen()),
+        '/materials': (_) =>
+            _roleGuarded('/materials', const MaterialsScreen()),
+        '/quizzes': (_) => _roleGuarded('/quizzes', const QuizzesScreen()),
       },
     );
   }

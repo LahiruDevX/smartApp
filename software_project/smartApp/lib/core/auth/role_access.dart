@@ -18,6 +18,9 @@ const Map<String, Set<String>> roleRoutes = {
     '/ai-teacher-3d',
     '/learning',
     '/progress',
+    '/notices',
+    '/materials',
+    '/quizzes',
   },
 
   // A teacher runs the classroom day-to-day and manages the AI tutor's
@@ -31,6 +34,9 @@ const Map<String, Set<String>> roleRoutes = {
     '/analytics',
     '/schedule',
     '/ai-management',
+    '/notices',
+    '/materials',
+    '/quizzes',
   },
 
   // Admin gets everything a teacher gets, plus full visibility into the
@@ -50,6 +56,9 @@ const Map<String, Set<String>> roleRoutes = {
     '/learning',
     '/progress',
     '/admin-users',
+    '/notices',
+    '/materials',
+    '/quizzes',
   },
 };
 

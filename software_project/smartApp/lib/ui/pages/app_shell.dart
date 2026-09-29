@@ -403,6 +403,7 @@ class AppShell extends StatelessWidget {
     required this.selectedRoute,
     required this.body,
     this.actions,
+    this.solidBackground,
   });
 
   final String title;
@@ -410,6 +411,10 @@ class AppShell extends StatelessWidget {
   final String selectedRoute;
   final Widget body;
   final List<Widget>? actions;
+
+  /// When set, replaces the usual per-role classroom-photo background with a
+  /// flat color for this screen only (every other screen is unaffected).
+  final Color? solidBackground;
 
   static const _sidebarWidth = 260.0;
 
@@ -420,7 +425,7 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = _isWide(context);
     final role = authService.user.value?.role;
-    final bgAsset = _backgroundFor(role);
+    final bgAsset = solidBackground != null ? null : _backgroundFor(role);
 
     final sidebar = _Sidebar(
       selectedRoute: selectedRoute,
@@ -431,7 +436,8 @@ class AppShell extends StatelessWidget {
     );
 
     final scaffold = Scaffold(
-      backgroundColor: bgAsset != null ? Colors.transparent : null,
+      backgroundColor:
+          solidBackground ?? (bgAsset != null ? Colors.transparent : null),
       drawer: wide ? null : Drawer(child: SafeArea(child: sidebar)),
       body: SafeArea(
         child: Row(
@@ -709,6 +715,27 @@ class _Sidebar extends StatelessWidget {
               label: 'User Management',
               selected: selectedRoute == '/admin-users',
               onTap: () => onNavigate('/admin-users'),
+            ),
+          if (allowed('/notices'))
+            _NavItem(
+              icon: Icons.campaign_outlined,
+              label: 'Notice Board',
+              selected: selectedRoute == '/notices',
+              onTap: () => onNavigate('/notices'),
+            ),
+          if (allowed('/materials'))
+            _NavItem(
+              icon: Icons.folder_copy_outlined,
+              label: 'Materials',
+              selected: selectedRoute == '/materials',
+              onTap: () => onNavigate('/materials'),
+            ),
+          if (allowed('/quizzes'))
+            _NavItem(
+              icon: Icons.quiz_outlined,
+              label: 'Quizzes',
+              selected: selectedRoute == '/quizzes',
+              onTap: () => onNavigate('/quizzes'),
             ),
         ];
 
