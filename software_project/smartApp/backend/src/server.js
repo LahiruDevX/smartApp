@@ -1,17 +1,22 @@
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import morgan from "morgan";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import sensorRoutes from "./routes/sensor.routes.js";
+
+import { setIO } from "./socket.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
 import environmentRoutes from "./routes/environment.routes.js";
 import studentsRoutes from "./routes/students.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
-import scheduleRoutes from "./routes/schedule.routes.js";
+import scheduleRoutes, { startScheduleAutomation } from "./routes/schedule.routes.js";
 import learningRoutes from "./routes/learning.routes.js";
 import noticesRoutes from "./routes/notices.routes.js";
 import materialsRoutes from "./routes/materials.routes.js";
@@ -22,6 +27,25 @@ import { startSensorSimulator } from "./sensors.js";
 dotenv.config();
 
 const app = express();
+
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+setIO(io);
+
+io.on("connection", (socket) => {
+  console.log(`Flutter client connected: ${socket.id}`);
+
+  socket.on("disconnect", () => {
+    console.log(`Flutter client disconnected: ${socket.id}`);
+  });
+});
 
 app.use(cors());
 app.use(
@@ -57,6 +81,7 @@ app.use("/api/notices", noticesRoutes);
 app.use("/api/materials", materialsRoutes);
 app.use("/api/quizzes", quizzesRoutes);
 app.use("/api/ai", aiTeacherRouter);
+app.use("/api/sensors", sensorRoutes);
 
 /* ✅ Serve 3D Teacher static files */
 const __filename = fileURLToPath(import.meta.url);
@@ -124,7 +149,8 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  startSensorSimulator();
+  // Sensor readings arrive through the real-time sensor endpoint on main.
+  startScheduleAutomation();
 });

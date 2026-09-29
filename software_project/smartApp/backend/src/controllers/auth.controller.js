@@ -1,9 +1,7 @@
 // backend/src/controllers/auth.controller.js
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import pool from "../db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -15,6 +13,10 @@ if (!JWT_SECRET) {
 const SELF_SIGNUP_ROLES = ["student", "teacher"];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function toUser(r) {
+  return { id: r.id, email: r.email, role: r.role, createdAt: r.created_at };
+}
 
 export async function register(req, res) {
   try {
@@ -36,17 +38,20 @@ export async function register(req, res) {
       return res.status(400).json({ message: "Role must be student or teacher" });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    if (existing.rowCount) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: { email, password: hashed, role },
-      select: { id: true, email: true, role: true, createdAt: true },
-    });
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password, role)
+       VALUES ($1, $2, $3)
+       RETURNING id, email, role, created_at`,
+      [email, hashed, role]
+    );
+    const user = toUser(rows[0]);
 
     // Log the new user straight in.
     const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, {
@@ -72,7 +77,8 @@ export async function login(req, res) {
       return res.status(400).json({ message: "email and password are required" });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const { rows } = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = rows[0];
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -119,18 +125,20 @@ export async function createUser(req, res) {
       return res.status(400).json({ message: "Role must be student or teacher" });
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    if (existing.rowCount) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: { email, password: hashed, role },
-      select: { id: true, email: true, role: true, createdAt: true },
-    });
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password, role)
+       VALUES ($1, $2, $3)
+       RETURNING id, email, role, created_at`,
+      [email, hashed, role]
+    );
 
-    return res.status(201).json({ message: "User created", user });
+    return res.status(201).json({ message: "User created", user: toUser(rows[0]) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error" });
@@ -148,12 +156,12 @@ export async function deleteUser(req, res) {
       return res.status(400).json({ message: "You cannot delete your own account" });
     }
 
-    await prisma.user.delete({ where: { id } });
-    return res.json({ message: "User deleted" });
-  } catch (err) {
-    if (err.code === "P2025") {
+    const { rowCount } = await pool.query("DELETE FROM users WHERE id = $1", [id]);
+    if (!rowCount) {
       return res.status(404).json({ message: "User not found" });
     }
+    return res.json({ message: "User deleted" });
+  } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
@@ -162,10 +170,10 @@ export async function deleteUser(req, res) {
 /** Admin-only: every account plus a per-role count, for the User Management page. */
 export async function listUsers(req, res) {
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, role: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const { rows } = await pool.query(
+      "SELECT id, email, role, created_at FROM users ORDER BY created_at DESC"
+    );
+    const users = rows.map(toUser);
     const counts = { admin: 0, teacher: 0, student: 0 };
     for (const u of users) {
       if (counts[u.role] !== undefined) counts[u.role] += 1;
@@ -180,14 +188,14 @@ export async function listUsers(req, res) {
 /** Protected: returns the current user based on the bearer token. */
 export async function me(req, res) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { id: true, email: true, role: true, createdAt: true },
-    });
-    if (!user) {
+    const { rows } = await pool.query(
+      "SELECT id, email, role, created_at FROM users WHERE id = $1",
+      [req.user.id]
+    );
+    if (!rows[0]) {
       return res.status(401).json({ message: "User no longer exists" });
     }
-    return res.json({ user });
+    return res.json({ user: toUser(rows[0]) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error" });

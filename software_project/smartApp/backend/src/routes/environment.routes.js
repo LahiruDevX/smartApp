@@ -7,11 +7,11 @@ const router = express.Router();
 router.use(requireAuth);
 
 const LABELS = {
-  temperature: "temperature",
-  humidity: "humidity",
-  air_quality: "air Quality",
-  light: "light",
-  noise: "noise",
+  temperature: "Temperature",
+  humidity: "Humidity",
+  air_quality: "Air Quality",
+  light: "Light",
+  noise: "Noise",
 };
 
 // GET /api/environment/latest -> newest reading per sensor type
@@ -29,6 +29,7 @@ router.get("/latest", async (req, res) => {
       value: r.value,
       unit: r.unit,
       status: r.status,
+      updatedAt: r.created_at,
     }));
 
     const updatedAt = rows.reduce(

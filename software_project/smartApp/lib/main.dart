@@ -79,9 +79,8 @@ class MyApp extends StatelessWidget {
         '/ai-teacher-3d': (ctx) => _roleGuarded(
               '/ai-teacher-3d',
               SubjectTeacherScreen(
-                subject:
-                    (ModalRoute.of(ctx)?.settings.arguments as String?) ??
-                        'General',
+                subject: (ModalRoute.of(ctx)?.settings.arguments as String?) ??
+                    'General',
               ),
             ),
         '/learning': (_) => _roleGuarded('/learning', const LearningScreen()),

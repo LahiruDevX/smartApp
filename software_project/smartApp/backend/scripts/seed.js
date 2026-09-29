@@ -1,9 +1,7 @@
 // Seed baseline accounts for local development / demos.
-// Run with:  node prisma/seed.js
+// Run with:  npm run seed
 import bcrypt from "bcrypt";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import pool from "../src/db.js";
 
 const ACCOUNTS = [
   { email: "admin@classroom.com", password: "password", role: "admin" },
@@ -14,11 +12,12 @@ const ACCOUNTS = [
 async function main() {
   for (const acc of ACCOUNTS) {
     const password = await bcrypt.hash(acc.password, 10);
-    await prisma.user.upsert({
-      where: { email: acc.email },
-      update: { role: acc.role },
-      create: { email: acc.email, password, role: acc.role },
-    });
+    await pool.query(
+      `INSERT INTO users (email, password, role)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role`,
+      [acc.email, password, acc.role]
+    );
     console.log(`✔ ${acc.email} (${acc.role})`);
   }
 }
@@ -28,4 +27,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => pool.end());

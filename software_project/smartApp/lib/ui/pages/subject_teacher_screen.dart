@@ -203,10 +203,14 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
         if (_gender != null) 'gender': _gender,
       });
       if (!mounted) return;
+      final reply = (data['reply'] ?? 'No reply').toString();
       setState(() {
-        _msgs.add(_Msg(false, (data['reply'] ?? 'No reply').toString()));
+        _msgs.add(_Msg(false, reply));
         _thinking = false;
       });
+      // no-op on web (the iframe already spoke its own reply); on native
+      // platforms this drives the on-device TTS + lip-sync avatar.
+      _avatar.speak(reply);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -312,11 +316,13 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
   String? get _url {
     final token = _token;
     if (token == null) return null;
+    final gender = _gender ?? _teacher?.gender;
     return '$apiBaseUrl/teacher3d/index.html'
         '?api=${Uri.encodeComponent(apiBaseUrl)}'
         '&token=$token'
         '&subject=${Uri.encodeComponent(widget.subject)}'
-        '&embedded=1';
+        '&embedded=1'
+        '${gender != null ? '&gender=${Uri.encodeComponent(gender)}' : ''}';
   }
 
   @override
