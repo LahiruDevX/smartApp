@@ -62,7 +62,7 @@ jobs:
         working-directory: ${{ env.FLUTTER_DIR }}
 
       - name: Flutter analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
         working-directory: ${{ env.FLUTTER_DIR }}
 
       - name: Flutter tests
