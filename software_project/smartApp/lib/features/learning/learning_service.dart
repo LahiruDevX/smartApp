@@ -148,6 +148,48 @@ class ChatSession {
       );
 }
 
+class LearningMaterial {
+  const LearningMaterial({
+    required this.id,
+    required this.subjectId,
+    this.subjectName,
+    required this.title,
+    this.description,
+    required this.fileUrl,
+    this.fileName,
+    this.fileType,
+    this.uploadedBy,
+    this.createdAt,
+  });
+
+  final int id;
+  final int subjectId;
+  final String? subjectName;
+  final String title;
+  final String? description;
+  final String fileUrl;
+  final String? fileName;
+  final String? fileType;
+  final int? uploadedBy;
+  final DateTime? createdAt;
+
+  factory LearningMaterial.fromJson(Map<String, dynamic> j) =>
+      LearningMaterial(
+        id: (j['id'] as num).toInt(),
+        subjectId: (j['subjectId'] as num).toInt(),
+        subjectName: j['subjectName'] as String?,
+        title: j['title'] as String,
+        description: j['description'] as String?,
+        fileUrl: j['fileUrl'] as String,
+        fileName: j['fileName'] as String?,
+        fileType: j['fileType'] as String?,
+        uploadedBy: (j['uploadedBy'] as num?)?.toInt(),
+        createdAt: j['createdAt'] == null
+            ? null
+            : DateTime.tryParse(j['createdAt'] as String),
+      );
+}
+
 class LearningService {
   LearningService(this.api);
   final ApiClient api;
@@ -176,4 +218,39 @@ class LearningService {
       summary: LearningSummary.fromJson(res['summary'] as Map<String, dynamic>),
     );
   }
+
+  /// Materials for one subject, or every subject when [subjectId] is null.
+  Future<List<LearningMaterial>> materials({int? subjectId}) async {
+    final path = subjectId == null
+        ? '/api/materials'
+        : '/api/materials?subject_id=$subjectId';
+    final res = await api.getAuthed(path);
+    return ((res['materials'] as List?) ?? const [])
+        .map((e) => LearningMaterial.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<LearningMaterial> uploadMaterial({
+    required int subjectId,
+    required String title,
+    String? description,
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final res = await api.postMultipartAuthed(
+      '/api/materials',
+      {
+        'subject_id': subjectId.toString(),
+        'title': title,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+      },
+      fileFieldName: 'file',
+      fileBytes: fileBytes,
+      fileName: fileName,
+    );
+    return LearningMaterial.fromJson(res['material'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteMaterial(int id) => api.deleteAuthed('/api/materials/$id');
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import 'teacher3d_view_stub.dart'
-    if (dart.library.html) 'teacher3d_view_web.dart' as impl;
+    if (dart.library.html) 'teacher3d_view_web.dart'
+    if (dart.library.io) 'teacher3d_view_mobile.dart' as impl;
 
 /// Lets the embedding screen talk to the avatar page: `ask()` sends a
 /// question that the avatar answers out loud (the reply also arrives through
@@ -40,8 +41,9 @@ class Teacher3dController {
   }
 }
 
-/// Embeds the backend's `/teacher3d` page (three.js avatar + AI chat) in an
-/// iframe. Web only; other platforms show a short notice.
+/// Embeds the backend's `/teacher3d` page (three.js avatar + AI chat) — as an
+/// iframe on web, and in a native WebView on Android/iOS. Desktop platforms
+/// show a short notice instead (see `teacher3d_view_mobile.dart`).
 ///
 /// [onMessage] receives the page's `postMessage` events, e.g.
 /// `{type: 'answer', question: ..., answer: ...}` or `{type: 'error', ...}`.
