@@ -18,6 +18,9 @@ import studentsRoutes from "./routes/students.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
 import scheduleRoutes, { startScheduleAutomation } from "./routes/schedule.routes.js";
 import learningRoutes from "./routes/learning.routes.js";
+import noticesRoutes from "./routes/notices.routes.js";
+import materialsRoutes from "./routes/materials.routes.js";
+import quizzesRoutes from "./routes/quizzes.routes.js";
 import aiTeacherRouter from "./routes/aiTeacher.js";
 import { startSensorSimulator } from "./sensors.js";
 
@@ -74,6 +77,9 @@ app.use("/api/students", studentsRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/learning", learningRoutes);
+app.use("/api/notices", noticesRoutes);
+app.use("/api/materials", materialsRoutes);
+app.use("/api/quizzes", quizzesRoutes);
 app.use("/api/ai", aiTeacherRouter);
 app.use("/api/sensors", sensorRoutes);
 
@@ -110,6 +116,9 @@ app.use(
 
 // ✅ serve Three.js from node_modules (NO CDN)
 app.use("/three", express.static(path.join(__dirname, "..", "node_modules", "three")));
+
+// Notice-board attachments and subject learning materials uploaded via multer.
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // Facial-recognition capture page (vendored face-api.js + models). Embedded by
 // the Flutter Attendance screen in an <iframe> served from a different port, so

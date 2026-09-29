@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/di/app_di.dart';
 import '../../features/learning/learning_service.dart';
+import '../theme/chalk_shapes.dart';
+import '../theme/chalk_theme.dart';
 import 'app_shell.dart';
 
 class AiTeacherScreen extends StatefulWidget {
@@ -11,20 +13,34 @@ class AiTeacherScreen extends StatefulWidget {
   State<AiTeacherScreen> createState() => _AiTeacherScreenState();
 }
 
-class _AiTeacherScreenState extends State<AiTeacherScreen> {
+class _AiTeacherScreenState extends State<AiTeacherScreen>
+    with SingleTickerProviderStateMixin {
   bool _loading = true;
   String? _error;
   List<Subject> _subjects = const [];
   List<ChatSession> _sessions = const [];
   Map<String, TeacherInfo> _teachers = const {};
 
-  bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
-  bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
+  /// Subject name -> its chalk color, assigned once per load by list
+  /// position so it stays the same everywhere that subject appears.
+  Map<String, Color> _subjectColors = const {};
+
+  static const _revealDuration = Duration(milliseconds: 900);
+  static const _staggerStepMs = 40;
+  late final AnimationController _revealController;
 
   @override
   void initState() {
     super.initState();
+    _revealController =
+        AnimationController(vsync: this, duration: _revealDuration);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _revealController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -42,11 +58,16 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
       if (!mounted) return;
       setState(() {
         _subjects = o.subjects;
+        _subjectColors = {
+          for (var i = 0; i < o.subjects.length; i++)
+            o.subjects[i].name: ChalkColors.forSubjectIndex(i),
+        };
         _sessions = sessions;
         _teachers = teachers;
         _loading = false;
         _error = null;
       });
+      _revealController.forward(from: 0);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -62,57 +83,56 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
     _load(); // refresh Chat History after returning
   }
 
-  // Visual identity per subject (name -> icon/colours). Falls back gracefully.
-  ({IconData icon, Color circle, Color bar}) _style(String name) {
+  Color _colorFor(String subject) =>
+      _subjectColors[subject] ?? ChalkColors.chalkSky;
+
+  IconData _iconFor(String name) {
     switch (name) {
       case 'Mathematics':
-        return (
-          icon: Icons.menu_book_outlined,
-          circle: const Color(0xFFDCEBFF),
-          bar: const Color(0xFF2563EB)
-        );
+        return Icons.calculate_outlined;
       case 'Computer Science':
-        return (
-          icon: Icons.code_rounded,
-          circle: const Color(0xFFDDFBE7),
-          bar: const Color(0xFF16A34A)
-        );
+        return Icons.code_rounded;
       case 'Science':
-        return (
-          icon: Icons.science_outlined,
-          circle: const Color(0xFFF1E8FF),
-          bar: const Color(0xFF7C3AED)
-        );
+        return Icons.science_outlined;
       case 'Languages':
-        return (
-          icon: Icons.public,
-          circle: const Color(0xFFFFF0D6),
-          bar: const Color(0xFFF59E0B)
-        );
+        return Icons.public;
       case 'History':
-        return (
-          icon: Icons.access_time_rounded,
-          circle: const Color(0xFFFFE1E1),
-          bar: const Color(0xFFEF4444)
-        );
+        return Icons.access_time_rounded;
       default:
-        return (
-          icon: Icons.auto_stories_outlined,
-          circle: const Color(0xFFEAF1FF),
-          bar: const Color(0xFF2563EB)
-        );
+        return Icons.auto_stories_outlined;
     }
+  }
+
+  /// Fade+scale-in animation for the subject card at [index], staggered by
+  /// [_staggerStepMs] per card.
+  Animation<double> _cardReveal(int index) {
+    final totalMs = _revealDuration.inMilliseconds;
+    final startMs = (index * _staggerStepMs).clamp(0, totalMs);
+    final start = startMs / totalMs;
+    final end = (start + 0.55).clamp(0.0, 1.0);
+    return CurvedAnimation(
+      parent: _revealController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+  }
+
+  String _recommendation() {
+    final weakest = [..._subjects]
+      ..sort((a, b) => a.skillLevel.compareTo(b.skillLevel));
+    if (weakest.isEmpty) return 'Start by exploring a subject!';
+    final s = weakest.first;
+    return 'Focus area: ${s.name} (skill ${s.skillLevel.toStringAsFixed(0)}/10). '
+        'Open it to start a guided session.';
   }
 
   @override
   Widget build(BuildContext context) {
-    final cols = _wide(context) ? 5 : (_mid(context) ? 3 : 1);
-
     return AppShell(
       title: 'AI Teaching Assistant',
       subtitle:
           'Your personalized learning companion for interactive education',
       selectedRoute: '/ai-teacher',
+      solidBackground: ChalkColors.paper,
       body: _loading
           ? const SizedBox(
               height: 300, child: Center(child: CircularProgressIndicator()))
@@ -124,7 +144,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('Could not load subjects\n$_error',
-                            textAlign: TextAlign.center),
+                            textAlign: TextAlign.center,
+                            style: ChalkText.body()),
                         const SizedBox(height: 10),
                         ElevatedButton(
                             onPressed: _load, child: const Text('Retry')),
@@ -135,279 +156,167 @@ class _AiTeacherScreenState extends State<AiTeacherScreen> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Meet3dTeacherBanner(
-                      onTap: () => _openSubject('General'),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Choose a Subject',
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w900)),
+                    _ChalkHeroCard(onTap: () => _openSubject('General')),
+                    const SizedBox(height: 24),
+                    Text('Choose a Subject', style: ChalkText.heading(size: 16)),
                     const SizedBox(height: 12),
-                    _Grid(
-                      columns: cols,
-                      children: [
-                        for (final s in _subjects)
-                          _SubjectCard(
-                            title: s.name,
-                            teacher: _teachers[s.name],
-                            icon: _style(s.name).icon,
-                            circleBg: _style(s.name).circle,
-                            barColor: _style(s.name).bar,
-                            skillLevel: s.skillLevel,
-                            onTap: () => _openSubject(s.name),
-                          ),
-                      ],
+                    SizedBox(
+                      height: 214,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _subjects.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (_, i) {
+                          final s = _subjects[i];
+                          final color = _colorFor(s.name);
+                          return SizedBox(
+                            width: 172,
+                            child: AnimatedBuilder(
+                              animation: _revealController,
+                              builder: (context, child) {
+                                final anim = _cardReveal(i);
+                                return Opacity(
+                                  opacity: anim.value,
+                                  child: Transform.scale(
+                                    scale: 0.85 + 0.15 * anim.value,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _SubjectCard(
+                                title: s.name,
+                                teacher: _teachers[s.name],
+                                icon: _iconFor(s.name),
+                                color: color,
+                                skillLevel: s.skillLevel,
+                                onTap: () => _openSubject(s.name),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                     if (_sessions.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _CardSection(
-                        title: 'Chat History',
-                        trailing: Icon(Icons.history,
-                            color: Colors.black.withOpacity(0.55)),
-                        child: Column(
-                          children: [
-                            for (final cs in _sessions)
-                              _SessionRow(
-                                session: cs,
-                                onTap: () => _openSubject(cs.subject),
-                              ),
-                          ],
+                      const SizedBox(height: 24),
+                      const _SectionHeading(
+                          title: 'Chat History', icon: Icons.history),
+                      const SizedBox(height: 10),
+                      for (final cs in _sessions)
+                        _ChatBubbleCard(
+                          session: cs,
+                          color: _colorFor(cs.subject),
+                          onTap: () => _openSubject(cs.subject),
                         ),
-                      ),
                     ],
-                    const SizedBox(height: 16),
-                    _TwoCardsRow(
-                      left: _CardSection(
-                        title: 'Your Progress',
-                        trailing: Icon(Icons.trending_up,
-                            color: Colors.black.withOpacity(0.55)),
-                        child: Column(
-                          children: [
-                            for (final s in _subjects
-                                .where((s) => s.studyMinutes > 0)
-                                .take(4)) ...[
-                              _ProgressRow(
-                                label: s.name,
-                                rightText: s.studyLabel,
-                                value: s.skillFraction,
-                                color: _style(s.name).bar,
-                              ),
-                              const SizedBox(height: 14),
-                            ],
-                            if (_subjects.every((s) => s.studyMinutes == 0))
-                              Text('No study time logged yet.',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black.withOpacity(0.55))),
-                            Align(
-                              alignment: Alignment.center,
-                              child: TextButton(
-                                onPressed: () =>
-                                    Navigator.pushNamed(context, '/progress'),
-                                child: const Text(
-                                  'View Detailed Progress',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      right: _CardSection(
-                        title: 'Recommended Lessons',
-                        trailing: Icon(Icons.auto_awesome,
-                            color: const Color(0xFF7C3AED).withOpacity(0.85)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _recommendation(),
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black.withOpacity(0.55),
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              height: 44,
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () => Navigator.pushNamed(
-                                    context, '/learning'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF8B3DFF),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  textStyle: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13),
-                                ),
-                                child: const Text('Explore All Lessons'),
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
+                    const SizedBox(height: 24),
+                    const _SectionHeading(
+                        title: 'Your Progress', icon: Icons.trending_up),
+                    const SizedBox(height: 12),
+                    _ProgressCard(
+                      subjects: _subjects,
+                      colorFor: _colorFor,
+                      onViewDetails: () =>
+                          Navigator.pushNamed(context, '/progress'),
                     ),
+                    const SizedBox(height: 24),
+                    _RecommendedLessonsCard(
+                      text: _recommendation(),
+                      onExplore: () =>
+                          Navigator.pushNamed(context, '/learning'),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
     );
   }
-
-  String _recommendation() {
-    final weakest = [..._subjects]..sort((a, b) => a.skillLevel.compareTo(b.skillLevel));
-    if (weakest.isEmpty) return 'Start by exploring a subject!';
-    final s = weakest.first;
-    return 'Focus area: ${s.name} (skill ${s.skillLevel.toStringAsFixed(0)}/10). '
-        'Open it to start a guided session.';
-  }
 }
 
-/* ---------------- helpers ---------------- */
+/* ---------------- widgets ---------------- */
 
-class _Meet3dTeacherBanner extends StatelessWidget {
-  const _Meet3dTeacherBanner({required this.onTap});
-  final VoidCallback onTap;
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.icon});
+  final String title;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.view_in_ar_rounded,
-                  color: Colors.white, size: 34),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Meet your 3D AI Teacher',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900)),
-                    SizedBox(height: 3),
-                    Text('Each subject below has its own teacher. Tap one to enter their classroom, or start here with the general tutor.',
-                        style:
-                            TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Grid extends StatelessWidget {
-  const _Grid({required this.columns, required this.children});
-  final int columns;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (_, c) {
-      const spacing = 14.0;
-      final w = c.maxWidth;
-      final itemW = (w - (columns - 1) * spacing) / columns;
-
-      return Wrap(
-        spacing: spacing,
-        runSpacing: spacing,
-        children:
-            children.map((e) => SizedBox(width: itemW, child: e)).toList(),
-      );
-    });
-  }
-}
-
-class _TwoCardsRow extends StatelessWidget {
-  const _TwoCardsRow({required this.left, required this.right});
-  final Widget left;
-  final Widget right;
-
-  bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_wide(context)) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: left),
-          const SizedBox(width: 14),
-          Expanded(child: right),
-        ],
-      );
-    }
-    return Column(
+    return Row(
       children: [
-        left,
-        const SizedBox(height: 14),
-        right,
+        Expanded(child: Text(title, style: ChalkText.heading(size: 15))),
+        Icon(icon, size: 18, color: ChalkColors.ink.withOpacity(0.5)),
       ],
     );
   }
 }
 
-class _CardSection extends StatelessWidget {
-  const _CardSection({required this.title, required this.child, this.trailing});
-
-  final String title;
-  final Widget child;
-  final Widget? trailing;
+class _ChalkHeroCard extends StatelessWidget {
+  const _ChalkHeroCard({required this.onTap});
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 26,
-            offset: const Offset(0, 16),
-            color: Colors.black.withOpacity(0.08),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      height: 184,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Expanded(
-                  child: Text(title,
-                      style: const TextStyle(
-                          fontSize: 14.5, fontWeight: FontWeight.w900))),
-              if (trailing != null) trailing!,
-            ],
+          const Positioned.fill(
+            child: CustomPaint(
+              painter: ChalkBlobPainter(
+                  color: ChalkColors.chalkboard, variant: 0),
+            ),
           ),
-          const SizedBox(height: 12),
-          child,
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.view_in_ar_rounded,
+                      color: Colors.white, size: 30),
+                  const SizedBox(height: 10),
+                  Text('Meet your 3D AI Teacher',
+                      style: ChalkText.heading(size: 19, color: Colors.white)),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Text(
+                      'Each subject has its own teacher. Tap one to enter '
+                      'their classroom, or start here with the general tutor.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: ChalkText.body(
+                          size: 12.5,
+                          color: Colors.white.withOpacity(0.82),
+                          height: 1.35),
+                    ),
+                  ),
+                  ChalkTapScale(
+                    onTap: onTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: ChalkColors.chalkYellow,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Start Learning',
+                              style: ChalkText.body(
+                                  size: 13,
+                                  weight: FontWeight.w800,
+                                  color: ChalkColors.ink)),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_rounded,
+                              size: 16, color: ChalkColors.ink),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -418,199 +327,345 @@ class _SubjectCard extends StatelessWidget {
   const _SubjectCard({
     required this.title,
     required this.icon,
-    required this.circleBg,
-    required this.barColor,
+    required this.color,
     required this.skillLevel,
     required this.onTap,
     this.teacher,
   });
 
   final String title;
-  final TeacherInfo? teacher; // the subject's named teacher, if any
+  final TeacherInfo? teacher;
   final IconData icon;
-  final Color circleBg;
-  final Color barColor;
+  final Color color;
   final double skillLevel; // 0..10
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 158),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.black.withOpacity(0.05)),
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 20,
-                offset: const Offset(0, 12),
-                color: Colors.black.withOpacity(0.08),
+    return ChalkTapScale(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 20,
+              offset: const Offset(0, 12),
+              color: ChalkColors.ink.withOpacity(0.08),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 52,
+              height: 52,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(52, 52),
+                    painter: ChalkBlobPainter(color: color, variant: 1),
+                  ),
+                  Icon(icon, color: ChalkColors.onColor(color), size: 22),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: ChalkText.heading(size: 14)),
+            if (teacher != null) ...[
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Icon(Icons.view_in_ar_rounded, size: 13, color: color),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(teacher!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ChalkText.body(
+                            size: 11, color: ChalkColors.ink.withOpacity(0.6))),
+                  ),
+                ],
               ),
             ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration:
-                    BoxDecoration(color: circleBg, shape: BoxShape.circle),
-                child: Icon(icon, color: Colors.black.withOpacity(0.75)),
-              ),
-              const SizedBox(height: 12),
-              Text(title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w900)),
-              if (teacher != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.view_in_ar_rounded,
-                        size: 14, color: teacher!.accent),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(teacher!.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black.withOpacity(0.65))),
-                    ),
-                  ],
+            const Spacer(),
+            Row(
+              children: [
+                SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: const Size(38, 38),
+                        painter: ChalkArcPainter(
+                          progress: (skillLevel / 10).clamp(0, 1).toDouble(),
+                          color: color,
+                          strokeWidth: 4.5,
+                        ),
+                      ),
+                      Text(skillLevel.toStringAsFixed(0),
+                          style: ChalkText.body(
+                              size: 12, weight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Skill Level',
+                      style: ChalkText.body(
+                          size: 10.5, color: ChalkColors.ink.withOpacity(0.55))),
                 ),
               ],
-              const SizedBox(height: 10),
-              Text('Skill Level  ${skillLevel.toStringAsFixed(0)}/10',
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.black.withOpacity(0.55),
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: (skillLevel / 10).clamp(0, 1).toDouble(),
-                  minHeight: 6,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  valueColor: AlwaysStoppedAnimation(barColor),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _SessionRow extends StatelessWidget {
-  const _SessionRow({required this.session, required this.onTap});
+class _ChatBubbleCard extends StatelessWidget {
+  const _ChatBubbleCard({
+    required this.session,
+    required this.color,
+    required this.onTap,
+  });
+
   final ChatSession session;
+  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.chat_bubble_outline,
-                size: 18, color: Color(0xFF2563EB)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(session.subject,
-                      style: const TextStyle(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(
-                    session.lastMessage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.black.withOpacity(0.55),
-                        fontWeight: FontWeight.w600),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: ClipPath(
+          clipper: const ChatBubbleClipper(),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 20),
+            color: color.withOpacity(0.14),
+            child: Row(
+              children: [
+                Icon(Icons.chat_bubble_outline, size: 18, color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(session.subject,
+                          style: ChalkText.heading(size: 13.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        session.lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ChalkText.body(
+                            size: 11.5, color: ChalkColors.ink.withOpacity(0.6)),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Text('${session.count} msg',
+                    style: ChalkText.body(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: ChalkColors.ink.withOpacity(0.45))),
+                Icon(Icons.chevron_right,
+                    size: 18, color: ChalkColors.ink.withOpacity(0.35)),
+              ],
             ),
-            const SizedBox(width: 10),
-            Text('${session.count} msg',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black.withOpacity(0.45))),
-            const Icon(Icons.chevron_right, size: 18, color: Colors.black38),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _ProgressRow extends StatelessWidget {
-  const _ProgressRow({
-    required this.label,
-    required this.rightText,
-    required this.value,
-    required this.color,
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({
+    required this.subjects,
+    required this.colorFor,
+    required this.onViewDetails,
   });
 
-  final String label;
-  final String rightText;
-  final double value;
+  final List<Subject> subjects;
+  final Color Function(String subject) colorFor;
+  final VoidCallback onViewDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final studied = subjects.where((s) => s.studyMinutes > 0).take(4).toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 26,
+            offset: const Offset(0, 16),
+            color: ChalkColors.ink.withOpacity(0.08),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (studied.isEmpty)
+            Text('No study time logged yet.',
+                style: ChalkText.body(
+                    size: 12, color: ChalkColors.ink.withOpacity(0.55)))
+          else
+            for (final s in studied) ...[
+              _ChalkRingRow(subject: s, color: colorFor(s.name)),
+              const SizedBox(height: 14),
+            ],
+          Align(
+            alignment: Alignment.center,
+            child: TextButton(
+              onPressed: onViewDetails,
+              child: Text('View Detailed Progress',
+                  style: ChalkText.body(
+                      size: 12,
+                      weight: FontWeight.w800,
+                      color: ChalkColors.chalkSky)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChalkRingRow extends StatelessWidget {
+  const _ChalkRingRow({required this.subject, required this.color});
+  final Subject subject;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontWeight: FontWeight.w900))),
-            Text(rightText,
-                style: TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.black.withOpacity(0.55),
-                    fontWeight: FontWeight.w700)),
-          ],
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(52, 52),
+                painter: ChalkArcPainter(
+                  progress: subject.skillFraction,
+                  color: color,
+                  strokeWidth: 5.5,
+                ),
+              ),
+              Text(subject.skillLevel.toStringAsFixed(0),
+                  style: ChalkText.body(size: 13, weight: FontWeight.w800)),
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: value,
-            minHeight: 8,
-            backgroundColor: const Color(0xFFE5E7EB),
-            valueColor: AlwaysStoppedAnimation(color),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(subject.name, style: ChalkText.heading(size: 13.5)),
+              const SizedBox(height: 2),
+              Text(subject.studyLabel,
+                  style: ChalkText.body(
+                      size: 11.5, color: ChalkColors.ink.withOpacity(0.55))),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RecommendedLessonsCard extends StatelessWidget {
+  const _RecommendedLessonsCard({required this.text, required this.onExplore});
+  final String text;
+  final VoidCallback onExplore;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        color: Colors.white,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              top: -20,
+              width: 140,
+              height: 140,
+              child: CustomPaint(
+                painter: ChalkBlobPainter(
+                  color: ChalkColors.chalkYellow.withOpacity(0.22),
+                  variant: 2,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome,
+                          size: 18, color: ChalkColors.chalkCoral),
+                      const SizedBox(width: 8),
+                      Text('Recommended Lessons',
+                          style: ChalkText.heading(size: 15)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(text,
+                      style: ChalkText.body(
+                          size: 12.5,
+                          color: ChalkColors.ink.withOpacity(0.65),
+                          height: 1.4)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 46,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onExplore,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ChalkColors.chalkboard,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999)),
+                        textStyle: ChalkText.body(
+                            size: 13, weight: FontWeight.w800),
+                      ),
+                      child: const Text('Explore All Lessons'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

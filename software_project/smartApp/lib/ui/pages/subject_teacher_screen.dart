@@ -187,14 +187,14 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
     });
     _jump();
 
-    // web: let the avatar ask and speak; the answer arrives via _onMessage
+    // web/mobile: let the avatar ask and speak; the answer arrives via _onMessage
     if (_avatarReady && _avatar.isAttached) {
       setState(() => _thinking = true);
       _avatar.ask(text);
       return;
     }
 
-    // no avatar (non-web, or still loading): plain request
+    // no avatar (desktop, or still loading): plain request
     setState(() => _thinking = true);
     try {
       final data = await apiClient.postAuthed('/api/ai/teacher', {
