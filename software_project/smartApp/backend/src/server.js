@@ -151,6 +151,6 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  // Sensor readings arrive through the real-time sensor endpoint on main.
   startScheduleAutomation();
+  startSensorSimulator();
 });
