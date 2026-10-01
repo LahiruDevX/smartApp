@@ -50,6 +50,34 @@ CREATE TABLE IF NOT EXISTS devices (
   )
 );
 
+-- On a DB set up from the interim devices.sql on main (73f797e), the columns
+-- already exist but the old demo rows (hvac, main_lights, ...) are still there,
+-- with no fan/bulb/rfid_reader rows. Schedule automation updates devices by id
+-- ('fan', 'bulb') and the app picks one device per type, so remove the demo
+-- rows and add the checks that version didn't have.
+DELETE FROM devices
+WHERE id IN ('main_lights', 'board_lights', 'projector', 'hvac', 'audio', 'emergency_lights');
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                 WHERE conrelid = 'devices'::regclass AND conname = 'devices_type_check') THEN
+    ALTER TABLE devices
+      ADD CONSTRAINT devices_type_check CHECK (device_type IN ('fan', 'bulb', 'rfid'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                 WHERE conrelid = 'devices'::regclass AND conname = 'devices_value_check') THEN
+    ALTER TABLE devices
+      ADD CONSTRAINT devices_value_check CHECK (
+        (device_type = 'fan'  AND slider_value BETWEEN 1 AND 3) OR
+        (device_type = 'bulb' AND slider_value BETWEEN 0 AND 100) OR
+        (device_type = 'rfid' AND slider_value IS NULL)
+      );
+  END IF;
+END $$;
+
+-- id is the device itself (schedule automation targets 'fan' and 'bulb' by id);
+-- device_type is its kind ('rfid' is what the routes and the app match on).
 INSERT INTO devices (id, title, device_type, is_on, slider_value, online) VALUES
   ('fan',         'Classroom Fan',           'fan',  false, 2,    true),
   ('bulb',        'Classroom Light',         'bulb', true,  80,   true),
