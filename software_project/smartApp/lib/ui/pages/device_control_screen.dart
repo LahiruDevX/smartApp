@@ -163,9 +163,10 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     });
 
     try {
+      final isDoor = device.type == 'lock';
       final updated = await deviceService.updateDevice(
         id: device.id,
-        isOn: device.isOn,
+        isOn: isDoor && !manualMode ? false : device.isOn,
         manualMode: manualMode,
         sliderValue: device.sliderValue,
       );
@@ -290,6 +291,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     final fan = _device('fan');
     final bulb = _device('bulb');
     final rfid = _device('rfid');
+    final door = _device('lock');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,6 +356,19 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
             );
           },
         ),
+        const SizedBox(height: 16),
+        if (door == null)
+          const _MissingDeviceCard(
+            type: 'Classroom Door Lock',
+            icon: Icons.lock_outline_rounded,
+          )
+        else
+          _DoorCard(
+            device: door,
+            pending: _pendingDevices.contains(door.id),
+            onPower: (value) => _setPower(door, value),
+            onModeChanged: (value) => _setMode(door, value),
+          ),
         const SizedBox(height: 16),
         if (rfid == null)
           const _MissingDeviceCard(
@@ -575,9 +590,79 @@ class _BulbCard extends StatelessWidget {
                 device.online && device.isOn && device.manualMode && !pending
                     ? onBrightnessChanged
                     : null,
-            onChangeEnd: device.online && device.isOn && device.manualMode && !pending
-                ? onBrightnessSubmitted
-                : null,
+            onChangeEnd:
+                device.online && device.isOn && device.manualMode && !pending
+                    ? onBrightnessSubmitted
+                    : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoorCard extends StatelessWidget {
+  const _DoorCard({
+    required this.device,
+    required this.pending,
+    required this.onPower,
+    required this.onModeChanged,
+  });
+
+  final DeviceModel device;
+  final bool pending;
+  final ValueChanged<bool> onPower;
+  final ValueChanged<bool> onModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DevicePanel(
+      icon: device.isOn ? Icons.lock_open_rounded : Icons.lock_rounded,
+      accent: const Color(0xFF7C3AED),
+      softAccent: const Color(0xFFF5F3FF),
+      title: 'Classroom Door',
+      subtitle: 'RFID and manual door lock control',
+      device: device,
+      pending: pending,
+      onPower: onPower,
+      onModeChanged: onModeChanged,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ControlLabel(label: 'Door status'),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: device.isOn
+                  ? const Color(0xFFF0FDF4)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: device.isOn
+                    ? const Color(0xFFBBF7D0)
+                    : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  device.isOn ? Icons.lock_open_rounded : Icons.lock_rounded,
+                  color: device.isOn
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF64748B),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  device.isOn ? 'Door Unlocked' : 'Door Locked',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
