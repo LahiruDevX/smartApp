@@ -29,6 +29,7 @@ class DeviceModel {
     required this.type,
     required this.isOn,
     required this.online,
+    required this.manualMode,
     required this.capabilities,
     this.sliderValue,
     this.updatedAt,
@@ -39,6 +40,7 @@ class DeviceModel {
   final String type;
   final bool isOn;
   final bool online;
+  final bool manualMode;
   final int? sliderValue;
   final DateTime? updatedAt;
   final DeviceCapabilities capabilities;
@@ -56,6 +58,7 @@ class DeviceModel {
       type: json['type'] is String ? json['type'] as String : 'unknown',
       isOn: json['isOn'] == true,
       online: json['online'] == true,
+      manualMode: json['manualMode'] == true,
       sliderValue: (json['sliderValue'] as num?)?.toInt(),
       updatedAt: json['updatedAt'] is String
           ? DateTime.tryParse(json['updatedAt'] as String)
