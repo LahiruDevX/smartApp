@@ -31,7 +31,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     super.initState();
     _load();
     _poller = Timer.periodic(
-      const Duration(seconds: 20),
+      const Duration(seconds: 5),
       (_) => _load(silent: true),
     );
   }

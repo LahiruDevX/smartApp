@@ -83,6 +83,20 @@ app.use("/api/quizzes", quizzesRoutes);
 app.use("/api/ai", aiTeacherRouter);
 app.use("/api/sensors", sensorRoutes);
 
+setInterval(async () => {
+  try {
+    await pool.query(
+      `UPDATE devices
+       SET online = false
+       WHERE online = true
+         AND last_seen IS NOT NULL
+         AND last_seen < NOW() - INTERVAL '30 seconds'`
+    );
+  } catch (err) {
+    console.error("Device offline check ERROR:", err);
+  }
+}, 10000);
+
 /* ✅ Serve 3D Teacher static files */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

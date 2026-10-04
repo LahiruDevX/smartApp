@@ -60,6 +60,39 @@ router.get("/esp32-control", async (_req, res) => {
   }
 });
 
+router.post("/heartbeat", async (req, res) => {
+  try {
+    const { deviceIds } = req.body;
+
+    if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
+      return res.status(400).json({
+        message: "deviceIds must be a non-empty array",
+      });
+    }
+
+    await pool.query(
+      `UPDATE devices
+       SET online = true,
+           last_seen = now(),
+           updated_at = now()
+       WHERE id = ANY($1::text[])`,
+      [deviceIds]
+    );
+
+    res.json({
+      success: true,
+      online: deviceIds,
+      timestamp: new Date(),
+    });
+  } catch (err) {
+    console.error("POST /api/devices/heartbeat ERROR:", err);
+
+    res.status(500).json({
+      message: "Could not update device heartbeat",
+    });
+  }
+});
+
 router.use(requireAuth);
 
 const capabilitiesFor = (type) => {
