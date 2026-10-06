@@ -5,6 +5,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { indexMaterial, embedPending } from "../rag.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -14,14 +15,21 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, "..", "..", "uploads", "materials");
 fs.mkdirSync(uploadDir, { recursive: true });
 
-const ALLOWED_TYPES = new Set([
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-]);
+// Allowed files, keyed by extension. The type is taken from the extension, not
+// the upload's Content-Type: the Flutter client sends every file as
+// application/octet-stream, so trusting that header rejected every upload.
+const ALLOWED_TYPES = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
+const typeOf = (fileName) => ALLOWED_TYPES[path.extname(fileName).toLowerCase()];
+
+const MAX_FILE_MB = 50; // a full school textbook PDF is typically 20-40 MB
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
@@ -32,8 +40,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, ALLOWED_TYPES.has(file.mimetype)),
+  limits: { fileSize: MAX_FILE_MB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, Boolean(typeOf(file.originalname))),
 });
 
 function toMaterial(r) {
@@ -80,7 +88,17 @@ router.get("/", async (req, res) => {
 router.post(
   "/",
   requireRole("teacher"),
-  upload.single("file"),
+  // multer errors (e.g. file too large) would otherwise reach Express's
+  // default handler, which replies with an HTML page the app can't parse.
+  (req, res, next) =>
+    upload.single("file")(req, res, (err) => {
+      if (!err) return next();
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? `File is too large (max ${MAX_FILE_MB} MB)`
+          : `Upload failed: ${err.message}`;
+      res.status(400).json({ message });
+    }),
   async (req, res) => {
     try {
       const { subject_id, title, description } = req.body;
@@ -90,9 +108,12 @@ router.post(
           .json({ message: "subject_id and title are required" });
       }
       if (!req.file) {
-        return res.status(400).json({ message: "file is required" });
+        return res
+          .status(400)
+          .json({ message: "A PDF, Word (.doc/.docx) or image file is required" });
       }
 
+      const fileType = typeOf(req.file.originalname);
       const fileUrl = `/uploads/materials/${req.file.filename}`;
       const { rows } = await pool.query(
         `INSERT INTO learning_materials
@@ -104,11 +125,35 @@ router.post(
           description || null,
           fileUrl,
           req.file.originalname,
-          req.file.mimetype,
+          fileType,
           req.user.id,
         ]
       );
-      res.status(201).json({ material: toMaterial(rows[0]) });
+      // RAG: make the file's text searchable for the AI teacher. Best-effort —
+      // a file we can't read must not fail the upload itself.
+      let chunks = 0;
+      try {
+        chunks = await indexMaterial({
+          materialId: rows[0].id,
+          subjectId: rows[0].subject_id,
+          filePath: req.file.path,
+          mimeType: fileType,
+        });
+      } catch (indexErr) {
+        console.error("material indexing failed:", indexErr);
+      }
+
+      // Embedding a long file takes a while, so it runs after the response.
+      // Anything it misses (e.g. Ollama was down) is picked up by
+      // `npm run rag:index`.
+      if (chunks) {
+        const materialId = rows[0].id;
+        embedPending(materialId)
+          .then((n) => console.log(`material ${materialId}: embedded ${n} chunks`))
+          .catch((e) => console.error(`material ${materialId}: embedding failed:`, e.message));
+      }
+
+      res.status(201).json({ material: toMaterial(rows[0]), chunks });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Server error" });

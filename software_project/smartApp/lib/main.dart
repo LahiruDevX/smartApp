@@ -18,6 +18,7 @@ import 'ui/pages/subject_teacher_screen.dart';
 import 'ui/pages/learning_screen.dart';
 import 'ui/pages/progress_screen.dart';
 import 'ui/pages/ai_management_screen.dart';
+import 'ui/pages/student_chats_screen.dart';
 import 'ui/pages/analytics_screen.dart';
 import 'ui/pages/schedule_screen.dart';
 import 'ui/pages/students_screen.dart';
@@ -87,6 +88,8 @@ class MyApp extends StatelessWidget {
         '/progress': (_) => _roleGuarded('/progress', const ProgressScreen()),
         '/ai-management': (_) =>
             _roleGuarded('/ai-management', const AiManagementScreen()),
+        '/student-chats': (_) =>
+            _roleGuarded('/student-chats', const StudentChatsScreen()),
         '/admin-users': (_) =>
             _roleGuarded('/admin-users', const AdminUsersScreen()),
         '/notices': (_) => _roleGuarded('/notices', const NoticeBoardScreen()),

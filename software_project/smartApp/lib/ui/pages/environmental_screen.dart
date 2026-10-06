@@ -194,7 +194,7 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
 
   void _connectSocket() {
     final socket = IO.io(
-      'http://localhost:4000',
+      apiBaseUrl, // same server as the REST API (--dart-define=API_BASE_URL)
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()

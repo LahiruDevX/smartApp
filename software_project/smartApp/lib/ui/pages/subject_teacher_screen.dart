@@ -163,7 +163,8 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
         setState(() {
           _thinking = false;
           _status = 'Ready — ask a question';
-          _msgs.add(_Msg(false, (m['answer'] ?? '').toString()));
+          _msgs.add(_Msg(false, (m['answer'] ?? '').toString(),
+              _sourceTitles(m['sources'])));
         });
         _jump();
         break;
@@ -205,7 +206,7 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
       if (!mounted) return;
       final reply = (data['reply'] ?? 'No reply').toString();
       setState(() {
-        _msgs.add(_Msg(false, reply));
+        _msgs.add(_Msg(false, reply, _sourceTitles(data['sources'])));
         _thinking = false;
       });
       // no-op on web (the iframe already spoke its own reply); on native
@@ -220,6 +221,12 @@ class _SubjectTeacherScreenState extends State<SubjectTeacherScreen> {
     }
     _jump();
   }
+
+  /// Titles of the course materials an answer drew on (RAG), from the
+  /// `sources` list the backend returns; empty for general answers.
+  static List<String> _sourceTitles(Object? sources) => sources is List
+      ? sources.map((s) => (s as Map)['title'].toString()).toList()
+      : const [];
 
   Future<void> _clear() async {
     try {
@@ -656,14 +663,33 @@ class _ChatPanel extends StatelessWidget {
                                     : const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text(
-                                m.text,
-                                style: TextStyle(
-                                  color: m.isUser ? Colors.white : Colors.black87,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.35,
-                                  fontSize: 13.5,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    m.text,
+                                    style: TextStyle(
+                                      color: m.isUser
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                      fontSize: 13.5,
+                                    ),
+                                  ),
+                                  if (m.sources.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Source: ${m.sources.join(', ')}',
+                                      style: TextStyle(
+                                        color: accent,
+                                        fontSize: 11.5,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           );
@@ -720,7 +746,10 @@ class _ChatPanel extends StatelessWidget {
 }
 
 class _Msg {
-  const _Msg(this.isUser, this.text);
+  const _Msg(this.isUser, this.text, [this.sources = const []]);
   final bool isUser;
   final String text;
+
+  /// Titles of the course materials an AI reply was based on (RAG).
+  final List<String> sources;
 }

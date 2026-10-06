@@ -1291,7 +1291,7 @@ async function ask() {
     answerBox.textContent = answer;
     questionInput.value = "";
     hint.textContent = "Ready";
-    emit("answer", { question: q, answer });
+    emit("answer", { question: q, answer, sources: data.sources || [] });
     speak(answer);
   } catch (e) {
     console.error(e);
