@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../core/di/app_di.dart';
 import '../../features/admin/admin_service.dart';
+import '../../features/attendance/attendance_service.dart';
 import '../../features/learning/learning_service.dart';
 import '../../features/schedule/schedule_service.dart';
 import 'app_shell.dart';
@@ -28,12 +28,9 @@ class DashboardScreen extends StatelessWidget {
       selectedRoute: '/dashboard',
       actions: [
         IconButton(
-          onPressed: () {},
+          tooltip: 'Notice Board',
+          onPressed: () => Navigator.pushReplacementNamed(context, '/notices'),
           icon: const Icon(Icons.notifications_none),
-        ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.dark_mode_outlined),
         ),
       ],
       body: isStudent
@@ -55,18 +52,20 @@ class _DashboardBodyState extends State<_DashboardBody> {
   bool _wide(BuildContext c) => MediaQuery.of(c).size.width >= 980;
   bool _mid(BuildContext c) => MediaQuery.of(c).size.width >= 680;
 
-  final _rng = math.Random();
   bool _refreshing = false;
 
-  // Real data from the backend.
+  // Real data from the backend. null = not loaded yet (shown as "—").
   int? _activeDevices;
+  int? _onlineDevices;
   int _totalDevices = 0;
+  AttendanceSummary? _attendance; // today's, from GET /api/attendance
+  int? _classesToday; // bookings on today's weekday, from GET /api/schedule
 
   // Admin-only: platform-wide account counts.
   UserDirectory? _userDir;
 
   // Environmental readings from the backend (GET /api/environment/latest).
-  double _temp = 24.4, _humidity = 47.8, _airQ = 392.2, _light = 334.2, _noise = 42.2;
+  double? _temp, _humidity, _airQ, _light, _noise;
   final Map<String, String> _status = {};
   String _updated = '—';
   Timer? _autoRefresh;
@@ -88,9 +87,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
     super.dispose();
   }
 
-  double _jitter(double base, double spread) =>
-      base + (_rng.nextDouble() - 0.5) * spread;
-
   String _fmtTime(DateTime dt) {
     final t = TimeOfDay.fromDateTime(dt.toLocal());
     final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
@@ -107,12 +103,26 @@ class _DashboardBodyState extends State<_DashboardBody> {
       final res = await apiClient.getAuthed('/api/devices');
       final list = (res['devices'] as List?) ?? const [];
       _totalDevices = list.length;
-      _activeDevices = list
-          .whereType<Map>()
-          .where((d) => d['isOn'] == true)
-          .length;
+      final devices = list.whereType<Map>();
+      _activeDevices = devices.where((d) => d['isOn'] == true).length;
+      _onlineDevices = devices.where((d) => d['online'] == true).length;
     } catch (_) {
       // Backend unreachable — keep the last known device count.
+    }
+
+    try {
+      _attendance = (await attendanceService.today()).summary;
+    } catch (_) {
+      // keep the last known attendance
+    }
+
+    try {
+      final today = DateTime.now().weekday; // 1 = Monday, as in bookings
+      _classesToday = (await scheduleService.bookings())
+          .where((b) => b.enabled && b.weekday == today)
+          .length;
+    } catch (_) {
+      // keep the last known class count
     }
 
     if (widget.isAdmin) {
@@ -142,14 +152,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
       }
       _updated = _fmtTime(env.updatedAt ?? DateTime.now());
     } catch (_) {
-      // Environment endpoint unavailable — nudge the last values so the tiles
-      // still look live.
-      _temp = _jitter(_temp, 1.0);
-      _humidity = _jitter(_humidity, 2.0);
-      _airQ = _jitter(_airQ, 10.0);
-      _light = _jitter(_light, 15.0);
-      _noise = _jitter(_noise, 3.0);
-      _updated = _fmtTime(DateTime.now());
+      // Environment endpoint unavailable — keep the last real readings and
+      // say so, rather than inventing new ones.
+      _updated = 'offline';
     }
 
     _refreshing = false;
@@ -165,7 +170,32 @@ class _DashboardBodyState extends State<_DashboardBody> {
     }
   }
 
-  String _f(double v) => v.toStringAsFixed(1);
+  String _f(double? v) => v == null ? '—' : v.toStringAsFixed(1);
+
+  /// One alert per sensor whose latest reading the backend flagged as
+  /// 'warning' (outside its normal range).
+  List<String> _alerts() {
+    const sensors = {
+      'temperature': ('Temperature', '°C'),
+      'humidity': ('Humidity', '%'),
+      'air_quality': ('Air quality', 'PPM'),
+      'light': ('Light level', 'Lux'),
+      'noise': ('Noise level', 'dB'),
+    };
+    final values = {
+      'temperature': _temp,
+      'humidity': _humidity,
+      'air_quality': _airQ,
+      'light': _light,
+      'noise': _noise,
+    };
+    return [
+      for (final e in sensors.entries)
+        if (_status[e.key] == 'warning')
+          '${e.value.$1} is outside the normal range: '
+              '${_f(values[e.key])} ${e.value.$2}',
+    ];
+  }
 
   Color _tint(String type) =>
       (_status[type] == 'warning') ? const Color(0xFFFFF7E6) : const Color(0xFFE9FFF3);
@@ -186,12 +216,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
               icon: Icons.refresh,
               label: _refreshing ? 'Refreshing…' : 'Refresh',
               onTap: _refresh,
-            ),
-            const SizedBox(width: 10),
-            _SoftButton(
-              icon: Icons.description_outlined,
-              label: 'Generate Report',
-              onTap: () {},
             ),
           ],
         ),
@@ -218,8 +242,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
               iconBg: const Color(0xFFD8FBE7),
               icon: Icons.groups_outlined,
               title: 'Students\nPresent',
-              value: '156',
-              chipText: '+12',
+              value: _attendance == null
+                  ? '—'
+                  : '${_attendance!.present + _attendance!.late}/${_attendance!.total}',
+              chipText: _attendance == null ? 'today' : '${_attendance!.rate}%',
               chipColor: const Color(0xFF16A34A),
               onTap: () =>
                   Navigator.pushReplacementNamed(context, '/attendance'),
@@ -227,24 +253,28 @@ class _DashboardBodyState extends State<_DashboardBody> {
             _StatCard(
               tint: const Color(0xFFEAF7FF),
               iconBg: const Color(0xFFD9F0FF),
-              icon: Icons.monitor_heart_outlined,
-              title: 'System\nHealth',
-              value: '98%',
-              chipText: 'Optimal',
+              icon: Icons.wifi_tethering,
+              title: 'Devices\nOnline',
+              value: _onlineDevices == null
+                  ? '—'
+                  : '$_onlineDevices/$_totalDevices',
+              chipText: _onlineDevices == null || _totalDevices == 0
+                  ? 'live'
+                  : '${(_onlineDevices! * 100 / _totalDevices).round()}%',
               chipColor: const Color(0xFF0EA5E9),
               onTap: () =>
-                  Navigator.pushReplacementNamed(context, '/analytics'),
+                  Navigator.pushReplacementNamed(context, '/device-control'),
             ),
             _StatCard(
               tint: const Color(0xFFFFF7E6),
               iconBg: const Color(0xFFFFE9B8),
-              icon: Icons.power_settings_new,
-              title: 'Power\nUsage',
-              value: '2.4kW',
-              chipText: '-8%',
+              icon: Icons.event_note_outlined,
+              title: 'Classes\nToday',
+              value: _classesToday == null ? '—' : '$_classesToday',
+              chipText: 'schedule',
               chipColor: const Color(0xFFF59E0B),
               onTap: () =>
-                  Navigator.pushReplacementNamed(context, '/environmental'),
+                  Navigator.pushReplacementNamed(context, '/schedule'),
             ),
           ],
         ),
@@ -362,10 +392,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
         ),
 
         const SizedBox(height: 18),
-        const _SectionCard(
-          title: 'Recent Alerts',
+        _SectionCard(
+          title: 'Sensor Alerts',
           icon: Icons.warning_amber_rounded,
-          child: _AlertsList(),
+          child: _AlertsList(alerts: _alerts()),
         ),
       ],
     );
@@ -651,10 +681,9 @@ class _QuickActionsRow extends StatelessWidget {
             _QuickAction(
               icon: Icons.notifications_active_outlined,
               title: 'View Alerts',
-              subtitle: 'Notifications',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new alerts')),
-              ),
+              subtitle: 'Sensor readings',
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/environmental'),
             ),
           ]
         : role == 'teacher'
@@ -683,10 +712,9 @@ class _QuickActionsRow extends StatelessWidget {
             _QuickAction(
               icon: Icons.notifications_active_outlined,
               title: 'View Alerts',
-              subtitle: 'Notifications',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new alerts')),
-              ),
+              subtitle: 'Sensor readings',
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/environmental'),
             ),
           ]
         : [
@@ -712,12 +740,11 @@ class _QuickActionsRow extends StatelessWidget {
                   Navigator.pushReplacementNamed(context, '/progress'),
             ),
             _QuickAction(
-              icon: Icons.notifications_active_outlined,
-              title: 'View Alerts',
-              subtitle: 'Notifications',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new alerts')),
-              ),
+              icon: Icons.campaign_outlined,
+              title: 'Notice Board',
+              subtitle: 'Announcements',
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/notices'),
             ),
           ];
 
@@ -993,23 +1020,29 @@ class _SensorCard extends StatelessWidget {
 }
 
 class _AlertsList extends StatelessWidget {
-  const _AlertsList();
+  const _AlertsList({required this.alerts});
+  final List<String> alerts;
 
   @override
   Widget build(BuildContext context) {
+    if (alerts.isEmpty) {
+      return const _AlertRow(
+        accent: Color(0xFF16A34A),
+        icon: Icons.check_circle_outline,
+        title: 'All sensors are within their normal range',
+        time: 'Checked with the latest readings',
+      );
+    }
     return Column(
-      children: const [
-        _AlertRow(
-          accent: Color(0xFFF59E0B),
-          title: 'Air quality above threshold in Room 301',
-          time: '10/25/2025, 3:42:33 PM',
-        ),
-        SizedBox(height: 10),
-        _AlertRow(
-          accent: Color(0xFF2D66F6),
-          title: 'Scheduled maintenance for HVAC system',
-          time: '10/25/2025, 2:24:33 PM',
-        ),
+      children: [
+        for (final (i, a) in alerts.indexed) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _AlertRow(
+            accent: const Color(0xFFF59E0B),
+            title: a,
+            time: 'Latest reading',
+          ),
+        ],
       ],
     );
   }
@@ -1020,9 +1053,11 @@ class _AlertRow extends StatelessWidget {
     required this.accent,
     required this.title,
     required this.time,
+    this.icon = Icons.warning_amber_rounded,
   });
 
   final Color accent;
+  final IconData icon;
   final String title;
   final String time;
 
@@ -1054,7 +1089,7 @@ class _AlertRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.black.withOpacity(0.06)),
             ),
-            child: Icon(Icons.warning_amber_rounded, color: accent),
+            child: Icon(icon, color: accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1067,7 +1102,6 @@ class _AlertRow extends StatelessWidget {
               ],
             ),
           ),
-          TextButton(onPressed: () {}, child: const Text('Dismiss')),
         ],
       ),
     );

@@ -450,6 +450,7 @@ class AppShell extends StatelessWidget {
                     subtitle: subtitle,
                     showMenu: !wide,
                     actions: actions,
+                    back: _backAction(context),
                   ),
                   Expanded(
                     child: SingleChildScrollView(
@@ -482,6 +483,21 @@ class AppShell extends StatelessWidget {
     );
   }
 
+  /// What the top bar's back button does on this page, or null to hide it.
+  /// A page opened from inside another page (e.g. a subject classroom from
+  /// AI Teacher) goes back to it. Sidebar pages replace each other, so there
+  /// is nothing to go back to — those go home to the Dashboard instead.
+  ({String tooltip, VoidCallback onTap})? _backAction(BuildContext context) {
+    if (Navigator.of(context).canPop()) {
+      return (tooltip: 'Back', onTap: () => Navigator.of(context).maybePop());
+    }
+    if (selectedRoute == '/dashboard') return null;
+    return (
+      tooltip: 'Back to Dashboard',
+      onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+    );
+  }
+
   /// Each role's background photo behind the shared shell, or null for a
   /// plain background.
   static String? _backgroundFor(String? role) {
@@ -503,12 +519,14 @@ class _TopBar extends StatelessWidget {
     required this.subtitle,
     required this.showMenu,
     this.actions,
+    this.back,
   });
 
   final String title;
   final String subtitle;
   final bool showMenu;
   final List<Widget>? actions;
+  final ({String tooltip, VoidCallback onTap})? back;
 
   @override
   Widget build(BuildContext context) {
@@ -530,6 +548,12 @@ class _TopBar extends StatelessWidget {
                 onPressed: () => Scaffold.of(context).openDrawer(),
                 icon: const Icon(Icons.menu),
               ),
+            ),
+          if (back != null)
+            IconButton(
+              tooltip: back!.tooltip,
+              onPressed: back!.onTap,
+              icon: const Icon(Icons.arrow_back_rounded),
             ),
           const SizedBox(width: 6),
           Expanded(
@@ -764,6 +788,13 @@ class _Sidebar extends StatelessWidget {
               label: 'AI Management',
               selected: selectedRoute == '/ai-management',
               onTap: () => onNavigate('/ai-management'),
+            ),
+          if (allowed('/student-chats'))
+            _NavItem(
+              icon: Icons.forum_outlined,
+              label: 'Student Chats',
+              selected: selectedRoute == '/student-chats',
+              onTap: () => onNavigate('/student-chats'),
             ),
         ];
 

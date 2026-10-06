@@ -21,6 +21,7 @@ import learningRoutes from "./routes/learning.routes.js";
 import noticesRoutes from "./routes/notices.routes.js";
 import materialsRoutes from "./routes/materials.routes.js";
 import quizzesRoutes from "./routes/quizzes.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 import aiTeacherRouter from "./routes/aiTeacher.js";
 import { startSensorSimulator } from "./sensors.js";
 
@@ -80,6 +81,7 @@ app.use("/api/learning", learningRoutes);
 app.use("/api/notices", noticesRoutes);
 app.use("/api/materials", materialsRoutes);
 app.use("/api/quizzes", quizzesRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiTeacherRouter);
 app.use("/api/sensors", sensorRoutes);
 
