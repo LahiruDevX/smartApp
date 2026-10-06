@@ -13,7 +13,6 @@ const _sensorOrder = [
   'humidity',
   'light',
   'air_quality',
-  'noise',
 ];
 
 const _sensorVisuals = <String, _SensorVisual>{
@@ -36,11 +35,6 @@ const _sensorVisuals = <String, _SensorVisual>{
     icon: Icons.air_rounded,
     color: Color(0xFF16A34A),
     softColor: Color(0xFFECFDF5),
-  ),
-  'noise': _SensorVisual(
-    icon: Icons.graphic_eq_rounded,
-    color: Color(0xFF7C3AED),
-    softColor: Color(0xFFF5F3FF),
   ),
 };
 
@@ -171,9 +165,6 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
         if (value > 700) return _StatusInfo.high;
       case 'air_quality':
         if (value > 450) return _StatusInfo.high;
-      case 'noise':
-        if (value < 30) return _StatusInfo.low;
-        if (value > 60) return _StatusInfo.high;
     }
     return sensor.isWarning ? _StatusInfo.high : _StatusInfo.normal;
   }
