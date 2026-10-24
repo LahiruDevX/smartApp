@@ -21,6 +21,7 @@ const Map<String, Set<String>> roleRoutes = {
     '/notices',
     '/materials',
     '/quizzes',
+    '/meetings',
   },
 
   // A teacher runs the classroom day-to-day and manages the AI tutor's
@@ -37,6 +38,7 @@ const Map<String, Set<String>> roleRoutes = {
     '/notices',
     '/materials',
     '/quizzes',
+    '/meetings',
   },
 
   // Admin gets everything a teacher gets, plus full visibility into the
@@ -59,6 +61,7 @@ const Map<String, Set<String>> roleRoutes = {
     '/notices',
     '/materials',
     '/quizzes',
+    '/meetings',
   },
 };
 

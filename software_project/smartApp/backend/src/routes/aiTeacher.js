@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import pool from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { askGemini } from "../services/gemini.service.js";
 
 const router = express.Router();
 
@@ -65,10 +66,6 @@ router.get("/teachers", requireAuth, (_req, res) => {
     })),
   });
 });
-
-// Configurable so you can swap models/host without touching code.
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gemma3:4b";
 
 // GET /api/ai/sessions -> one row per subject the user has chatted about
 router.get("/sessions", requireAuth, async (req, res) => {
@@ -147,33 +144,22 @@ router.post("/teacher", requireAuth, async (req, res) => {
     }
 
     const t = teacherFor(subject, gender);
-    const prompt = `
-You are ${t.name}, the ${t.subject} teacher in a smart classroom.
+    const systemInstruction = `You are ${t.name}, a friendly AI teacher for ${t.subject} in a smart classroom.
 Teaching style: ${t.style}.
 Stay in character as ${t.name}. Do not introduce yourself unless the student asks who you are.
 Keep the answer focused on ${t.subject}; if the question belongs to another subject, answer briefly and suggest asking that subject's teacher.
 Your answer is read aloud by a 3D avatar, so use plain spoken language: no markdown, no headings, no bullet symbols. Keep it under 120 words unless the student asks for more detail.
 Room: ${roomId || "unknown"}
-Schedule: ${schedule ? JSON.stringify(schedule) : "not provided"}
+Schedule: ${schedule ? JSON.stringify(schedule) : "not provided"}`;
 
-Student question: ${message}
-`;
-
-    const r = await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
+    const { text: reply, error } = await askGemini({
+      prompt: message,
+      systemInstruction,
     });
 
-    if (!r.ok) {
-      const t = await r.text();
-      return res
-        .status(502)
-        .json({ error: `Ollama error (${r.status}): ${t.slice(0, 200)}` });
+    if (error) {
+      return res.status(502).json({ error });
     }
-
-    const data = await r.json();
-    const reply = data.response;
 
     // Persist the turn (best-effort — a DB hiccup must not lose the reply).
     try {
@@ -190,7 +176,7 @@ Student question: ${message}
   } catch (e) {
     console.error(e);
     return res.status(502).json({
-      error: "Cannot reach the AI model. Is Ollama running?",
+      error: "Cannot reach the AI model. Please try again.",
     });
   }
 });

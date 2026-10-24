@@ -732,6 +732,13 @@ class _Sidebar extends StatelessWidget {
               selected: selectedRoute == '/quizzes',
               onTap: () => onNavigate('/quizzes'),
             ),
+          if (allowed('/meetings'))
+            _NavItem(
+              icon: Icons.videocam_outlined,
+              label: 'Meetings',
+              selected: selectedRoute == '/meetings',
+              onTap: () => onNavigate('/meetings'),
+            ),
         ];
 
         // A student's own AI tutor (chat/learning/progress), or a staff

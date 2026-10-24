@@ -25,6 +25,7 @@ import 'ui/pages/admin_users_screen.dart';
 import 'ui/pages/notice_board_screen.dart';
 import 'ui/pages/materials_screen.dart';
 import 'ui/pages/quizzes_screen.dart';
+import 'ui/pages/meetings_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -93,6 +94,7 @@ class MyApp extends StatelessWidget {
         '/materials': (_) =>
             _roleGuarded('/materials', const MaterialsScreen()),
         '/quizzes': (_) => _roleGuarded('/quizzes', const QuizzesScreen()),
+        '/meetings': (_) => _roleGuarded('/meetings', const MeetingsScreen()),
       },
     );
   }

@@ -125,22 +125,42 @@ class ChalkArcPainter extends CustomPainter {
 /// Rounded-rect clip with a small triangular tail, so a plain container reads
 /// as an actual speech-bubble shape (used for Chat History rows).
 class ChatBubbleClipper extends CustomClipper<Path> {
-  const ChatBubbleClipper({this.radius = 16, this.tailSize = 10, this.tailInset = 24});
+  const ChatBubbleClipper({
+    this.radius = 16,
+    this.tailSize = 10,
+    this.tailInset = 24,
+    this.alignRight = false,
+  });
 
   final double radius;
   final double tailSize;
+
+  /// Distance from the tail's edge — the left edge normally, or the right
+  /// edge when [alignRight] is true (a sent/outgoing bubble).
   final double tailInset;
+  final bool alignRight;
 
   @override
   Path getClip(Size size) {
+    final double baseStart;
+    final double tipX;
+    if (alignRight) {
+      final baseEnd = size.width - tailInset;
+      baseStart = baseEnd - tailSize * 1.4;
+      tipX = baseEnd - tailSize * 0.4;
+    } else {
+      baseStart = tailInset;
+      tipX = baseStart + tailSize * 0.4;
+    }
+
     final path = Path()
       ..addRRect(RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, size.width, size.height - tailSize),
         Radius.circular(radius),
       ))
-      ..moveTo(tailInset, size.height - tailSize)
-      ..lineTo(tailInset + tailSize * 1.4, size.height - tailSize)
-      ..lineTo(tailInset + tailSize * 0.4, size.height)
+      ..moveTo(baseStart, size.height - tailSize)
+      ..lineTo(baseStart + tailSize * 1.4, size.height - tailSize)
+      ..lineTo(tipX, size.height)
       ..close();
     return path;
   }
@@ -149,7 +169,8 @@ class ChatBubbleClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant ChatBubbleClipper oldClipper) =>
       oldClipper.radius != radius ||
       oldClipper.tailSize != tailSize ||
-      oldClipper.tailInset != tailInset;
+      oldClipper.tailInset != tailInset ||
+      oldClipper.alignRight != alignRight;
 }
 
 /// Wraps [child] with a brief scale-down on tap-down / back up on release —

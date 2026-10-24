@@ -194,7 +194,7 @@ class _EnvironmentalBodyState extends State<_EnvironmentalBody> {
 
   void _connectSocket() {
     final socket = IO.io(
-      'http://localhost:4000',
+      apiBaseUrl,
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
