@@ -7,6 +7,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import pool from "./db.js";
 import sensorRoutes from "./routes/sensor.routes.js";
 
 import { setIO } from "./socket.js";

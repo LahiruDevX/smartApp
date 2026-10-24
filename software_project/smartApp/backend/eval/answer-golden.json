@@ -1,0 +1,54 @@
+{
+  "_comment": [
+    "Question set for the answer quality evaluation (npm run eval:answers).",
+    "type: covered / not_covered / wrong_subject / off_topic (same meaning as retrieval-golden.json).",
+    "keyPoints: groups of phrases a good answer should contain. A group is met when the answer",
+    "           contains ANY phrase in it (case-insensitive). Used for the automatic key-point score.",
+    "expectRedirect: for wrong_subject, the subject the teacher should send the student to."
+  ],
+  "questions": [
+    { "subject": "Mathematics", "type": "covered", "question": "How do you solve a quadratic equation?",
+      "keyPoints": [["formula", "completing the square", "factor"], ["root", "solution", "two values", "two answers"]] },
+    { "subject": "Mathematics", "type": "covered", "question": "What is a complex number?",
+      "keyPoints": [["imaginary"], ["square root of -1", "square root of negative one", "square root of minus one", "i squared", "i^2", "-1"]] },
+    { "subject": "Mathematics", "type": "covered", "question": "What is a rational number?",
+      "keyPoints": [["fraction", "ratio", "divid"], ["integer", "whole number"]] },
+    { "subject": "Mathematics", "type": "not_covered", "question": "How do you find the derivative of a function?",
+      "keyPoints": [["rate of change", "slope", "gradient"]] },
+
+    { "subject": "Computer Science", "type": "covered", "question": "What does an operating system do?",
+      "keyPoints": [["hardware"], ["manage", "control"]] },
+    { "subject": "Computer Science", "type": "covered", "question": "What is the difference between a compiler and an interpreter?",
+      "keyPoints": [["whole program", "entire program", "all at once", "at once", "before"], ["line by line", "one line at a time", "statement by statement"]] },
+    { "subject": "Computer Science", "type": "covered", "question": "How does the binary number system work?",
+      "keyPoints": [["0 and 1", "zero and one", "0s and 1s", "zeros and ones", "two digits"], ["base 2", "base two", "base-2", "powers of 2", "powers of two"]] },
+    { "subject": "Computer Science", "type": "not_covered", "question": "What is cloud computing?",
+      "keyPoints": [["internet"], ["server", "remote", "online"]] },
+
+    { "subject": "Science", "type": "covered", "question": "What are carbohydrates?",
+      "keyPoints": [["carbon"], ["hydrogen"], ["oxygen"], ["energy", "sugar", "starch"]] },
+    { "subject": "Science", "type": "covered", "question": "What is acceleration?",
+      "keyPoints": [["velocity", "speed"], ["time"]] },
+    { "subject": "Science", "type": "covered", "question": "What do enzymes do?",
+      "keyPoints": [["catalyst", "speed up", "speeds up", "faster"], ["reaction"]] },
+    { "subject": "Science", "type": "not_covered", "question": "What is the function of mitochondria?",
+      "keyPoints": [["energy", "atp"], ["powerhouse", "respiration"]] },
+
+    { "subject": "History", "type": "covered", "question": "What are archaeological sources?",
+      "keyPoints": [["coin", "inscription", "ruin", "excavat", "artifact", "artefact"]] },
+    { "subject": "History", "type": "covered", "question": "When did the Portuguese arrive in Sri Lanka?",
+      "keyPoints": [["1505"]] },
+    { "subject": "History", "type": "covered", "question": "Who was King Dutugemunu?",
+      "keyPoints": [["elara"], ["anuradhapura", "ruwanweli"]] },
+    { "subject": "History", "type": "not_covered", "question": "What caused World War 1?",
+      "keyPoints": [["franz ferdinand", "archduke", "assassinat"]] },
+
+    { "subject": "Mathematics", "type": "wrong_subject", "question": "How does photosynthesis work?", "expectRedirect": "Science" },
+    { "subject": "History", "type": "wrong_subject", "question": "What is a flowchart?", "expectRedirect": "Computer Science" },
+    { "subject": "Science", "type": "wrong_subject", "question": "Who was King Dutugemunu?", "expectRedirect": "History" },
+    { "subject": "Computer Science", "type": "wrong_subject", "question": "How do you solve a quadratic equation?", "expectRedirect": "Mathematics" },
+
+    { "subject": "Science", "type": "off_topic", "question": "Can you recommend a good movie to watch tonight?" },
+    { "subject": "History", "type": "off_topic", "question": "How do I bake a chocolate cake?" }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "date": "2026-10-23T08:25:28.446Z",
+  "TOP_K": 4,
+  "MIN_SCORE": 0.65,
+  "overall": {
+    "covered": 41,
+    "negatives": 20,
+    "Hit@1": "95.1%",
+    "Hit@4": "97.6%",
+    "Hit@4 (no threshold)": "97.6%",
+    "MRR": 0.963,
+    "Precision@4": "87.2%",
+    "Covered answered": "100.0%",
+    "False-positive rate": "25.0%"
+  },
+  "perSubject": {
+    "Mathematics": {
+      "covered": 10,
+      "negatives": 5,
+      "Hit@1": "90.0%",
+      "Hit@4": "90.0%",
+      "Hit@4 (no threshold)": "90.0%",
+      "MRR": 0.9,
+      "Precision@4": "87.5%",
+      "Covered answered": "100.0%",
+      "False-positive rate": "20.0%"
+    },
+    "Computer Science": {
+      "covered": 11,
+      "negatives": 5,
+      "Hit@1": "100.0%",
+      "Hit@4": "100.0%",
+      "Hit@4 (no threshold)": "100.0%",
+      "MRR": 1,
+      "Precision@4": "84.1%",
+      "Covered answered": "100.0%",
+      "False-positive rate": "20.0%"
+    },
+    "Science": {
+      "covered": 10,
+      "negatives": 5,
+      "Hit@1": "90.0%",
+      "Hit@4": "100.0%",
+      "Hit@4 (no threshold)": "100.0%",
+      "MRR": 0.95,
+      "Precision@4": "80.0%",
+      "Covered answered": "100.0%",
+      "False-positive rate": "40.0%"
+    },
+    "History": {
+      "covered": 10,
+      "negatives": 5,
+      "Hit@1": "100.0%",
+      "Hit@4": "100.0%",
+      "Hit@4 (no threshold)": "100.0%",
+      "MRR": 1,
+      "Precision@4": "97.5%",
+      "Covered answered": "100.0%",
+      "False-positive rate": "20.0%"
+    }
+  },
+  "scoreDistribution": {
+    "covered": {
+      "n": 41,
+      "min": 0.678,
+      "mean": 0.783,
+      "max": 0.898
+    },
+    "not_covered": {
+      "n": 8,
+      "min": 0.618,
+      "mean": 0.661,
+      "max": 0.766
+    },
+    "wrong_subject": {
+      "n": 8,
+      "min": 0.551,
+      "mean": 0.59,
+      "max": 0.66
+    },
+    "off_topic": {
+      "n": 4,
+      "min": 0.482,
+      "mean": 0.508,
+      "max": 0.532
+    }
+  },
+  "bestThreshold": 0.7,
+  "sweep": [
+    {
+      "threshold": 0.5,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.05,
+      "balanced": 0.5128048780487805
+    },
+    {
+      "threshold": 0.51,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.1,
+      "balanced": 0.5378048780487805
+    },
+    {
+      "threshold": 0.52,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.15,
+      "balanced": 0.5628048780487804
+    },
+    {
+      "threshold": 0.53,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.15,
+      "balanced": 0.5628048780487804
+    },
+    {
+      "threshold": 0.54,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.2,
+      "balanced": 0.5878048780487805
+    },
+    {
+      "threshold": 0.55,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.2,
+      "balanced": 0.5878048780487805
+    },
+    {
+      "threshold": 0.56,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.25,
+      "balanced": 0.6128048780487805
+    },
+    {
+      "threshold": 0.57,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.25,
+      "balanced": 0.6128048780487805
+    },
+    {
+      "threshold": 0.58,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.35,
+      "balanced": 0.6628048780487805
+    },
+    {
+      "threshold": 0.59,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.45,
+      "balanced": 0.7128048780487805
+    },
+    {
+      "threshold": 0.6,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.55,
+      "balanced": 0.7628048780487805
+    },
+    {
+      "threshold": 0.61,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.55,
+      "balanced": 0.7628048780487805
+    },
+    {
+      "threshold": 0.62,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.6,
+      "balanced": 0.7878048780487805
+    },
+    {
+      "threshold": 0.63,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.6,
+      "balanced": 0.7878048780487805
+    },
+    {
+      "threshold": 0.64,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.75,
+      "balanced": 0.8628048780487805
+    },
+    {
+      "threshold": 0.65,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.75,
+      "balanced": 0.8628048780487805
+    },
+    {
+      "threshold": 0.66,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.85,
+      "balanced": 0.9128048780487805
+    },
+    {
+      "threshold": 0.67,
+      "covered with hit": 0.975609756097561,
+      "negatives rejected": 0.9,
+      "balanced": 0.9378048780487804
+    },
+    {
+      "threshold": 0.68,
+      "covered with hit": 0.9512195121951219,
+      "negatives rejected": 0.9,
+      "balanced": 0.9256097560975609
+    },
+    {
+      "threshold": 0.69,
+      "covered with hit": 0.9512195121951219,
+      "negatives rejected": 0.9,
+      "balanced": 0.9256097560975609
+    },
+    {
+      "threshold": 0.7,
+      "covered with hit": 0.926829268292683,
+      "negatives rejected": 0.95,
+      "balanced": 0.9384146341463415
+    },
+    {
+      "threshold": 0.71,
+      "covered with hit": 0.926829268292683,
+      "negatives rejected": 0.95,
+      "balanced": 0.9384146341463415
+    },
+    {
+      "threshold": 0.72,
+      "covered with hit": 0.9024390243902439,
+      "negatives rejected": 0.95,
+      "balanced": 0.926219512195122
+    },
+    {
+      "threshold": 0.73,
+      "covered with hit": 0.8780487804878049,
+      "negatives rejected": 0.95,
+      "balanced": 0.9140243902439025
+    },
+    {
+      "threshold": 0.74,
+      "covered with hit": 0.8292682926829268,
+      "negatives rejected": 0.95,
+      "balanced": 0.8896341463414634
+    },
+    {
+      "threshold": 0.75,
+      "covered with hit": 0.7804878048780488,
+      "negatives rejected": 0.95,
+      "balanced": 0.8652439024390244
+    },
+    {
+      "threshold": 0.76,
+      "covered with hit": 0.7073170731707317,
+      "negatives rejected": 0.95,
+      "balanced": 0.8286585365853658
+    },
+    {
+      "threshold": 0.77,
+      "covered with hit": 0.6829268292682927,
+      "negatives rejected": 1,
+      "balanced": 0.8414634146341464
+    },
+    {
+      "threshold": 0.78,
+      "covered with hit": 0.5853658536585366,
+      "negatives rejected": 1,
+      "balanced": 0.7926829268292683
+    },
+    {
+      "threshold": 0.79,
+      "covered with hit": 0.43902439024390244,
+      "negatives rejected": 1,
+      "balanced": 0.7195121951219512
+    },
+    {
+      "threshold": 0.8,
+      "covered with hit": 0.3170731707317073,
+      "negatives rejected": 1,
+      "balanced": 0.6585365853658537
+    }
+  ]
+}

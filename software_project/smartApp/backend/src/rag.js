@@ -129,10 +129,10 @@ export async function embedPending(materialId = null) {
   }
 }
 
-const TOP_K = 4; // passages added to the prompt
-const MIN_SCORE = Number(process.env.RAG_MIN_SCORE || 0.65); // measured on 4 subjects: covered >= 0.676, not covered <= 0.633
+export const TOP_K = 4; // passages added to the prompt
+export const MIN_SCORE = Number(process.env.RAG_MIN_SCORE || 0.65); // measured on 4 subjects: covered >= 0.676, not covered <= 0.633
 
-function cosine(a, b) {
+export function cosine(a, b) {
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
