@@ -132,7 +132,6 @@ class _AiTeacherScreenState extends State<AiTeacherScreen>
       subtitle:
           'Your personalized learning companion for interactive education',
       selectedRoute: '/ai-teacher',
-      solidBackground: ChalkColors.paper,
       body: _loading
           ? const SizedBox(
               height: 300, child: Center(child: CircularProgressIndicator()))
@@ -158,7 +157,8 @@ class _AiTeacherScreenState extends State<AiTeacherScreen>
                   children: [
                     _ChalkHeroCard(onTap: () => _openSubject('General')),
                     const SizedBox(height: 24),
-                    Text('Choose a Subject', style: ChalkText.heading(size: 16)),
+                    const _SectionHeading(
+                        title: 'Choose a Subject', icon: Icons.school_outlined),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 214,
@@ -201,12 +201,30 @@ class _AiTeacherScreenState extends State<AiTeacherScreen>
                       const _SectionHeading(
                           title: 'Chat History', icon: Icons.history),
                       const SizedBox(height: 10),
-                      for (final cs in _sessions)
-                        _ChatBubbleCard(
-                          session: cs,
-                          color: _colorFor(cs.subject),
-                          onTap: () => _openSubject(cs.subject),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                              color: ChalkColors.ink.withOpacity(0.08),
+                            ),
+                          ],
                         ),
+                        child: Column(
+                          children: [
+                            for (final cs in _sessions)
+                              _ChatBubbleCard(
+                                session: cs,
+                                color: _colorFor(cs.subject),
+                                onTap: () => _openSubject(cs.subject),
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 24),
                     const _SectionHeading(
@@ -240,11 +258,24 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(title, style: ChalkText.heading(size: 15))),
-        Icon(icon, size: 18, color: ChalkColors.ink.withOpacity(0.5)),
-      ],
+    // White pill so the heading stays readable over the background photo.
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: ChalkColors.ink.withOpacity(0.6)),
+            const SizedBox(width: 8),
+            Text(title, style: ChalkText.heading(size: 15)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -255,16 +286,23 @@ class _ChalkHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    // A solid rounded card (not a free-form blob) so the white text always
+    // has a dark backing over the page's classroom photo.
+    return Container(
       height: 184,
+      decoration: BoxDecoration(
+        color: ChalkColors.chalkboard,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+            color: Colors.black.withOpacity(0.18),
+          ),
+        ],
+      ),
       child: Stack(
         children: [
-          const Positioned.fill(
-            child: CustomPaint(
-              painter: ChalkBlobPainter(
-                  color: ChalkColors.chalkboard, variant: 0),
-            ),
-          ),
           Positioned.fill(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
@@ -455,7 +493,9 @@ class _ChatBubbleCard extends StatelessWidget {
           clipper: const ChatBubbleClipper(),
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 14, 20),
-            color: color.withOpacity(0.14),
+            // opaque tint (tint blended onto white) — a see-through tint let
+            // the background photo show through the text
+            color: Color.alphaBlend(color.withOpacity(0.12), Colors.white),
             child: Row(
               children: [
                 Icon(Icons.chat_bubble_outline, size: 18, color: color),

@@ -4,9 +4,119 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { euclidean, isValidDescriptor, MATCH_THRESHOLD } from "../face.js";
 
 const router = express.Router();
-router.use(requireAuth);
 
 const staff = requireRole("admin", "teacher");
+
+router.post("/rfid", async (req, res) => {
+  try {
+    const { uid } = req.body;
+
+    if (!uid || typeof uid !== "string") {
+      return res.status(400).json({
+        message: "uid is required",
+      });
+    }
+
+    const normalizedUid = uid
+      .replace(/[^0-9A-Fa-f]/g, "")
+      .toUpperCase();
+
+    console.log("RFID scan received:", normalizedUid);
+
+    const RFID_STUDENT_MAP = {
+      "BA071307": "3456",
+    };
+
+    const studentCode = RFID_STUDENT_MAP[normalizedUid];
+
+    if (!studentCode) {
+      console.log("Unknown RFID:", normalizedUid);
+
+      return res.json({
+        matched: false,
+        reason: "unknown card",
+      });
+    }
+
+    const { rows: students } = await pool.query(
+      `SELECT id, name, student_code
+       FROM students
+       WHERE student_code = $1
+       LIMIT 1`,
+      [studentCode]
+    );
+
+    if (!students.length) {
+      return res.status(404).json({
+        matched: false,
+        reason: "student not found",
+      });
+    }
+
+    const student = students[0];
+
+    const now = new Date();
+    const activeClass = await activeAttendanceClass(now);
+
+    const minute = now.getHours() * 60 + now.getMinutes();
+
+    const status = activeClass
+      ? minute >=
+        activeClass.start_minute +
+          activeClass.attendance_grace_minutes
+        ? "late"
+        : "present"
+      : now.getHours() >= LATE_AFTER_HOUR
+        ? "late"
+        : "present";
+
+    const date = todayISO();
+
+    // -------------------------------------------------
+    // Insert RFID attendance
+    // -------------------------------------------------
+
+    const result = await pool.query(
+      `INSERT INTO attendance_records
+       (student_id, method, status, session_date, booking_id)
+       VALUES ($1, 'rfid', $2, $3, $4)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [
+        student.id,
+        status,
+        date,
+        activeClass?.id ?? null,
+      ]
+    );
+
+    console.log(
+      result.rowCount
+        ? `RFID attendance marked: ${student.name}`
+        : `RFID attendance already exists: ${student.name}`
+    );
+
+    return res.json({
+      matched: true,
+      alreadyMarked: result.rowCount === 0,
+      student: {
+        studentCode: student.student_code,
+        name: student.name,
+      },
+      status,
+      classTitle: activeClass?.title ?? null,
+    });
+  } catch (err) {
+    console.error("POST /api/attendance/rfid ERROR:", err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+router.use(requireAuth);
 
 // A student scanned after this local hour is marked "late".
 const LATE_AFTER_HOUR = 9;

@@ -81,8 +81,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
         'message': text,
       });
       final reply = (data['reply'] ?? 'No reply').toString();
+      // course materials the answer drew on (RAG); empty for general answers
+      final sources = ((data['sources'] as List?) ?? const [])
+          .map((s) => (s as Map)['title'].toString())
+          .toList();
       setState(() {
-        _msgs.add(_Msg(false, reply));
+        _msgs.add(_Msg(false, reply, sources));
         _loading = false;
       });
     } catch (e) {
@@ -164,14 +168,42 @@ class _AiChatScreenState extends State<AiChatScreen> {
                             border: Border.all(
                                 color: Colors.black.withOpacity(0.06)),
                           ),
-                          child: Text(
-                            m.text,
-                            style: TextStyle(
-                              color:
-                                  m.isUser ? Colors.white : Colors.black87,
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                m.text,
+                                style: TextStyle(
+                                  color: m.isUser
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                ),
+                              ),
+                              if (m.sources.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.menu_book_outlined,
+                                        size: 14, color: Color(0xFF2563EB)),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        'Source: ${m.sources.join(', ')}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF2563EB),
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       );
@@ -223,5 +255,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
 class _Msg {
   final bool isUser;
   final String text;
-  const _Msg(this.isUser, this.text);
+
+  /// Titles of the course materials an AI reply was based on (RAG).
+  final List<String> sources;
+  const _Msg(this.isUser, this.text, [this.sources = const []]);
 }

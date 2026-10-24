@@ -1,0 +1,313 @@
+{
+  "date": "2026-10-24T08:51:00.705Z",
+  "runs": 3,
+  "machine": {
+    "cpu": "Intel(R) Core(TM) 7 240H",
+    "threads": 16,
+    "ramGB": 16,
+    "os": "Windows_NT 10.0.26200",
+    "node": "v24.17.0",
+    "chatModel": "llama3.2:3b",
+    "embedModel": "nomic-embed-text"
+  },
+  "coldStart": {
+    "chatMs": 366,
+    "embedMs": 39
+  },
+  "components": {
+    "embed 1 question": {
+      "n": 20,
+      "min": 32,
+      "mean": 46,
+      "p50": 45,
+      "p95": 61,
+      "max": 70
+    },
+    "DB load chunks: Mathematics (329)": {
+      "n": 20,
+      "min": 794,
+      "mean": 2764,
+      "p50": 1222,
+      "p95": 11243,
+      "max": 11539
+    },
+    "cosine rank: Mathematics (329)": {
+      "n": 20,
+      "min": 0,
+      "mean": 0,
+      "p50": 0,
+      "p95": 1,
+      "max": 2
+    },
+    "retrieve() total: Mathematics": {
+      "n": 20,
+      "min": 726,
+      "mean": 1420,
+      "p50": 1103,
+      "p95": 2235,
+      "max": 2704
+    },
+    "DB load chunks: Computer Science (484)": {
+      "n": 20,
+      "min": 1094,
+      "mean": 5735,
+      "p50": 4013,
+      "p95": 11131,
+      "max": 14549
+    },
+    "cosine rank: Computer Science (484)": {
+      "n": 20,
+      "min": 0,
+      "mean": 1,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "retrieve() total: Computer Science": {
+      "n": 20,
+      "min": 1267,
+      "mean": 1844,
+      "p50": 1704,
+      "p95": 2664,
+      "max": 2868
+    },
+    "DB load chunks: Science (857)": {
+      "n": 20,
+      "min": 1673,
+      "mean": 3431,
+      "p50": 2605,
+      "p95": 4438,
+      "max": 15874
+    },
+    "cosine rank: Science (857)": {
+      "n": 20,
+      "min": 1,
+      "mean": 1,
+      "p50": 1,
+      "p95": 2,
+      "max": 3
+    },
+    "retrieve() total: Science": {
+      "n": 20,
+      "min": 2501,
+      "mean": 4605,
+      "p50": 3951,
+      "p95": 8607,
+      "max": 11422
+    },
+    "DB load chunks: History (606)": {
+      "n": 20,
+      "min": 1133,
+      "mean": 2826,
+      "p50": 2197,
+      "p95": 3004,
+      "max": 17043
+    },
+    "cosine rank: History (606)": {
+      "n": 20,
+      "min": 1,
+      "mean": 1,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "retrieve() total: History": {
+      "n": 20,
+      "min": 1602,
+      "mean": 3851,
+      "p50": 2433,
+      "p95": 11348,
+      "max": 13509
+    },
+    "classifySubject (LLM, 1 word)": {
+      "n": 3,
+      "min": 341,
+      "mean": 1970,
+      "p50": 352,
+      "p95": 5216,
+      "max": 5216
+    },
+    "askModel WITH notes (4 passages)": {
+      "n": 3,
+      "min": 28716,
+      "mean": 32444,
+      "p50": 34074,
+      "p95": 34543,
+      "max": 34543
+    },
+    "askModel WITHOUT notes": {
+      "n": 3,
+      "min": 11718,
+      "mean": 14348,
+      "p50": 11818,
+      "p95": 19509,
+      "max": 19509
+    }
+  },
+  "chunkCounts": {
+    "Mathematics": 329,
+    "Computer Science": 484,
+    "Science": 857,
+    "History": 606
+  },
+  "ollamaModels": [
+    {
+      "model": "llama3.2:3b",
+      "sizeMB": 2449,
+      "gpuPercent": 0
+    },
+    {
+      "model": "nomic-embed-text:latest",
+      "sizeMB": 371,
+      "gpuPercent": 0
+    }
+  ],
+  "api": {
+    "POST /api/ai/teacher — covered": {
+      "n": 3,
+      "min": 17753,
+      "mean": 21239,
+      "p50": 21799,
+      "p95": 24165,
+      "max": 24165
+    },
+    "POST /api/ai/teacher — not_covered": {
+      "n": 3,
+      "min": 16054,
+      "mean": 21250,
+      "p50": 16948,
+      "p95": 30747,
+      "max": 30747
+    },
+    "POST /api/ai/teacher — wrong_subject": {
+      "n": 3,
+      "min": 1012,
+      "mean": 1312,
+      "p50": 1038,
+      "p95": 1887,
+      "max": 1887
+    },
+    "GET /api/ai/history": {
+      "n": 20,
+      "min": 121,
+      "mean": 130,
+      "p50": 129,
+      "p95": 144,
+      "max": 146
+    },
+    "GET /api/ai/sessions": {
+      "n": 20,
+      "min": 117,
+      "mean": 126,
+      "p50": 126,
+      "p95": 138,
+      "max": 139
+    },
+    "GET /api/ai/overview (teacher)": {
+      "n": 20,
+      "min": 231,
+      "mean": 244,
+      "p50": 237,
+      "p95": 251,
+      "max": 331
+    },
+    "POST /api/auth/login": {
+      "n": 20,
+      "min": 192,
+      "mean": 207,
+      "p50": 203,
+      "p95": 223,
+      "max": 226
+    }
+  },
+  "concurrency": {
+    "1 at once": {
+      "ok": "1/1",
+      "fastest": 78345,
+      "slowest": 78345,
+      "mean": 78345,
+      "total wall ms": 78345,
+      "answers / min": 0.8
+    },
+    "2 at once": {
+      "ok": "2/2",
+      "fastest": 76705,
+      "slowest": 95538,
+      "mean": 86121,
+      "total wall ms": 95538,
+      "answers / min": 1.3
+    },
+    "4 at once": {
+      "ok": "4/4",
+      "fastest": 55231,
+      "slowest": 115644,
+      "mean": 85274,
+      "total wall ms": 115645,
+      "answers / min": 2.1
+    }
+  },
+  "load": [
+    {
+      "label": "GET /api/ai/history",
+      "n": 200,
+      "min": 139,
+      "mean": 324,
+      "p50": 254,
+      "p95": 957,
+      "max": 1135,
+      "errors": 0,
+      "req/sec": 59
+    },
+    {
+      "label": "GET /api/ai/overview",
+      "n": 200,
+      "min": 385,
+      "mean": 480,
+      "p50": 485,
+      "p95": 506,
+      "max": 548,
+      "errors": 0,
+      "req/sec": 41
+    }
+  ],
+  "indexing": {
+    "chunksPerRun": 2,
+    "steps": {
+      "extract": {
+        "n": 3,
+        "min": 6,
+        "mean": 39,
+        "p50": 8,
+        "p95": 104,
+        "max": 104
+      },
+      "chunk": {
+        "n": 3,
+        "min": 0,
+        "mean": 0,
+        "p50": 0,
+        "p95": 0,
+        "max": 0
+      },
+      "store": {
+        "n": 3,
+        "min": 582,
+        "mean": 591,
+        "p50": 593,
+        "p95": 596,
+        "max": 596
+      },
+      "embed": {
+        "n": 3,
+        "min": 1016,
+        "mean": 1054,
+        "p50": 1022,
+        "p95": 1123,
+        "max": 1123
+      }
+    },
+    "embedMsPerChunk": 527,
+    "largestTextbookChunks": 857,
+    "largestTextbookEstimateSec": 452
+  }
+}

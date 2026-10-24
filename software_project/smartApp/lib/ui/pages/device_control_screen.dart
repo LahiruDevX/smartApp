@@ -31,7 +31,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     super.initState();
     _load();
     _poller = Timer.periodic(
-      const Duration(seconds: 20),
+      const Duration(seconds: 5),
       (_) => _load(silent: true),
     );
   }
@@ -132,6 +132,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
       final updated = await deviceService.updateDevice(
         id: device.id,
         isOn: isOn,
+        manualMode: true,
         sliderValue: device.sliderValue,
       );
       if (!mounted) return;
@@ -149,8 +150,60 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     }
   }
 
+  Future<void> _setMode(
+    DeviceModel device,
+    bool manualMode,
+  ) async {
+    if (_pendingDevices.contains(device.id) || !device.online) {
+      return;
+    }
+
+    setState(() {
+      _pendingDevices.add(device.id);
+    });
+
+    try {
+      final isDoor = device.type == 'lock';
+      final updated = await deviceService.updateDevice(
+        id: device.id,
+        isOn: isDoor && !manualMode ? false : device.isOn,
+        manualMode: manualMode,
+        sliderValue: device.sliderValue,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _replaceDevice(updated);
+        _lastUpdated = DateTime.now();
+      });
+
+      _showResult(
+        '${device.title} set to '
+        '${manualMode ? 'MANUAL' : 'AUTOMATIC'} mode.',
+        success: true,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      _showResult(
+        'Could not change ${device.title} mode: '
+        '${_message(error)}',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pendingDevices.remove(device.id);
+        });
+      }
+    }
+  }
+
   Future<void> _setValue(DeviceModel device, int value, String label) async {
-    if (_pendingDevices.contains(device.id) || !device.online || !device.isOn) {
+    if (_pendingDevices.contains(device.id) ||
+        !device.online ||
+        !device.isOn ||
+        !device.manualMode) {
       return;
     }
     final previous = device.sliderValue;
@@ -163,6 +216,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
       final updated = await deviceService.updateDevice(
         id: device.id,
         isOn: device.isOn,
+        manualMode: true,
         sliderValue: value,
       );
       if (!mounted) return;
@@ -237,6 +291,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
     final fan = _device('fan');
     final bulb = _device('bulb');
     final rfid = _device('rfid');
+    final door = _device('lock');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,6 +330,7 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
                           pending: _pendingDevices.contains(fan.id),
                           onPower: (value) => _setPower(fan, value),
                           onSpeed: (value) => _setValue(fan, value, 'speed'),
+                          onModeChanged: (value) => _setMode(fan, value),
                         ),
                 ),
                 SizedBox(
@@ -293,12 +349,26 @@ class _DeviceControlScreenState extends State<DeviceControlScreen> {
                               () => _draftValues[bulb.id] = value.round()),
                           onBrightnessSubmitted: (value) =>
                               _setValue(bulb, value.round(), 'brightness'),
+                          onModeChanged: (value) => _setMode(bulb, value),
                         ),
                 ),
               ],
             );
           },
         ),
+        const SizedBox(height: 16),
+        if (door == null)
+          const _MissingDeviceCard(
+            type: 'Classroom Door Lock',
+            icon: Icons.lock_outline_rounded,
+          )
+        else
+          _DoorCard(
+            device: door,
+            pending: _pendingDevices.contains(door.id),
+            onPower: (value) => _setPower(door, value),
+            onModeChanged: (value) => _setMode(door, value),
+          ),
         const SizedBox(height: 16),
         if (rfid == null)
           const _MissingDeviceCard(
@@ -409,12 +479,14 @@ class _FanCard extends StatelessWidget {
     required this.pending,
     required this.onPower,
     required this.onSpeed,
+    required this.onModeChanged,
   });
 
   final DeviceModel device;
   final bool pending;
   final ValueChanged<bool> onPower;
   final ValueChanged<int> onSpeed;
+  final ValueChanged<bool> onModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -428,6 +500,7 @@ class _FanCard extends StatelessWidget {
       device: device,
       pending: pending,
       onPower: onPower,
+      onModeChanged: onModeChanged,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -444,7 +517,10 @@ class _FanCard extends StatelessWidget {
                   child: _LevelButton(
                     label: option.$2,
                     selected: speed == option.$1,
-                    enabled: device.online && device.isOn && !pending,
+                    enabled: device.online &&
+                        device.isOn &&
+                        device.manualMode &&
+                        !pending,
                     onTap: () => onSpeed(option.$1),
                   ),
                 ),
@@ -466,6 +542,7 @@ class _BulbCard extends StatelessWidget {
     required this.onPower,
     required this.onBrightnessChanged,
     required this.onBrightnessSubmitted,
+    required this.onModeChanged,
   });
 
   final DeviceModel device;
@@ -474,7 +551,7 @@ class _BulbCard extends StatelessWidget {
   final ValueChanged<bool> onPower;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<double> onBrightnessSubmitted;
-
+  final ValueChanged<bool> onModeChanged;
   @override
   Widget build(BuildContext context) {
     final brightness = draftBrightness.clamp(0, 100);
@@ -487,6 +564,7 @@ class _BulbCard extends StatelessWidget {
       device: device,
       pending: pending,
       onPower: onPower,
+      onModeChanged: onModeChanged,
       child: Column(
         children: [
           Row(
@@ -508,12 +586,83 @@ class _BulbCard extends StatelessWidget {
             max: 100,
             divisions: 20,
             activeColor: const Color(0xFFEAB308),
-            onChanged: device.online && device.isOn && !pending
-                ? onBrightnessChanged
-                : null,
-            onChangeEnd: device.online && device.isOn && !pending
-                ? onBrightnessSubmitted
-                : null,
+            onChanged:
+                device.online && device.isOn && device.manualMode && !pending
+                    ? onBrightnessChanged
+                    : null,
+            onChangeEnd:
+                device.online && device.isOn && device.manualMode && !pending
+                    ? onBrightnessSubmitted
+                    : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DoorCard extends StatelessWidget {
+  const _DoorCard({
+    required this.device,
+    required this.pending,
+    required this.onPower,
+    required this.onModeChanged,
+  });
+
+  final DeviceModel device;
+  final bool pending;
+  final ValueChanged<bool> onPower;
+  final ValueChanged<bool> onModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DevicePanel(
+      icon: device.isOn ? Icons.lock_open_rounded : Icons.lock_rounded,
+      accent: const Color(0xFF7C3AED),
+      softAccent: const Color(0xFFF5F3FF),
+      title: 'Classroom Door',
+      subtitle: 'RFID and manual door lock control',
+      device: device,
+      pending: pending,
+      onPower: onPower,
+      onModeChanged: onModeChanged,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ControlLabel(label: 'Door status'),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: device.isOn
+                  ? const Color(0xFFF0FDF4)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: device.isOn
+                    ? const Color(0xFFBBF7D0)
+                    : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  device.isOn ? Icons.lock_open_rounded : Icons.lock_rounded,
+                  color: device.isOn
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF64748B),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  device.isOn ? 'Door Unlocked' : 'Door Locked',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -532,6 +681,7 @@ class _DevicePanel extends StatelessWidget {
     required this.pending,
     required this.onPower,
     required this.child,
+    required this.onModeChanged,
   });
 
   final IconData icon;
@@ -542,6 +692,7 @@ class _DevicePanel extends StatelessWidget {
   final DeviceModel device;
   final bool pending;
   final ValueChanged<bool> onPower;
+  final ValueChanged<bool> onModeChanged;
   final Widget child;
 
   @override
@@ -620,6 +771,12 @@ class _DevicePanel extends StatelessWidget {
             enabled: device.online && !pending,
             onChanged: onPower,
           ),
+          const SizedBox(height: 16),
+          _ControlMode(
+            manualMode: device.manualMode,
+            enabled: device.online && !pending,
+            onChanged: onModeChanged,
+          ),
           const Divider(height: 30, color: Color(0xFFEFF2F7)),
           child,
         ],
@@ -662,6 +819,101 @@ class _PowerControls extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ControlMode extends StatelessWidget {
+  const _ControlMode({
+    required this.manualMode,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool manualMode;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'CONTROL MODE',
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 0.7,
+            color: Color(0xFF94A3B8),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _ModeButton(
+                label: 'Automatic',
+                icon: Icons.auto_awesome_rounded,
+                selected: !manualMode,
+                enabled: enabled,
+                onTap: () => onChanged(false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ModeButton(
+                label: 'Manual',
+                icon: Icons.touch_app_rounded,
+                selected: manualMode,
+                enabled: enabled,
+                onTap: () => onChanged(true),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: enabled ? onTap : null,
+      icon: Icon(icon, size: 17),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor:
+            selected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+        backgroundColor: selected ? const Color(0xFFEFF6FF) : Colors.white,
+        side: BorderSide(
+          color: selected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(11),
+        ),
+      ),
     );
   }
 }

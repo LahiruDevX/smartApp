@@ -1,0 +1,49 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1258 >>
+stream
+BT /F1 11 Tf 50 780 Td 16 TL
+(The Pythagorean theorem describes right-angled triangles.) Tj T*
+(In a right-angled triangle the longest side is called the hypotenuse.) Tj T*
+(The theorem states that a^2 + b^2 = c^2, where c is the hypotenuse.) Tj T*
+(The square of the hypotenuse equals the sum of the squares of the other two sides.) Tj T*
+(For example, a triangle with sides 3 and 4 has a hypotenuse of length 5.) Tj T*
+(This is because 3^2 + 4^2 = 9 + 16 = 25, and the square root of 25 is 5.) Tj T*
+(Another example is the triangle with sides 5, 12 and 13.) Tj T*
+(Builders use the theorem to check that the corners of walls are square.) Tj T*
+(The theorem is named after the Greek mathematician Pythagoras.) Tj T*
+(It only works for right-angled triangles, not for other triangles.) Tj T*
+(To find a shorter side, rearrange the formula: a^2 = c^2 - b^2.) Tj T*
+(For a hypotenuse of 10 and a side of 6, the other side is 8.) Tj T*
+(The distance between two points on a graph also uses the Pythagorean theorem.) Tj T*
+(Sets of whole numbers like 3, 4, 5 are called Pythagorean triples.) Tj T*
+(Students should always label the hypotenuse before using the formula.) Tj T*
+(Remember to take the square root at the end to get the length of the side.) Tj T*
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1621
+%%EOF

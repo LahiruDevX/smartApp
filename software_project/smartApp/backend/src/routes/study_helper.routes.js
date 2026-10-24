@@ -1,6 +1,6 @@
 import express from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { askGemini } from "../services/gemini.service.js";
+import { askOllama } from "../services/ollama.service.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -17,7 +17,7 @@ router.post("/ask", requireRole("student"), async (req, res) => {
       return res.status(400).json({ error: "message is required" });
     }
 
-    const { text: reply, error } = await askGemini({
+    const { text: reply, error } = await askOllama({
       prompt: message,
       systemInstruction: SYSTEM_INSTRUCTION,
       history,

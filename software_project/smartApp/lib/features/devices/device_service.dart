@@ -16,10 +16,12 @@ class DeviceService {
   Future<DeviceModel> updateDevice({
     required String id,
     required bool isOn,
+    required bool manualMode,
     int? sliderValue,
   }) async {
     final res = await api.patchAuthed('/api/devices/$id', {
       'isOn': isOn,
+      'manualMode': manualMode,
       if (sliderValue != null) 'sliderValue': sliderValue,
     });
     return DeviceModel.fromJson(res['device'] as Map<String, dynamic>);

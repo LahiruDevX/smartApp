@@ -7,6 +7,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import pool from "./db.js";
 import sensorRoutes from "./routes/sensor.routes.js";
 
 import { setIO } from "./socket.js";
@@ -23,6 +24,7 @@ import materialsRoutes from "./routes/materials.routes.js";
 import quizzesRoutes from "./routes/quizzes.routes.js";
 import studyHelperRoutes from "./routes/study_helper.routes.js";
 import meetingsRoutes from "./routes/meetings.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 import aiTeacherRouter from "./routes/aiTeacher.js";
 import { startSensorSimulator } from "./sensors.js";
 
@@ -84,8 +86,23 @@ app.use("/api/materials", materialsRoutes);
 app.use("/api/quizzes", quizzesRoutes);
 app.use("/api/study-helper", studyHelperRoutes);
 app.use("/api/meetings", meetingsRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiTeacherRouter);
 app.use("/api/sensors", sensorRoutes);
+
+setInterval(async () => {
+  try {
+    await pool.query(
+      `UPDATE devices
+       SET online = false
+       WHERE online = true
+         AND last_seen IS NOT NULL
+         AND last_seen < NOW() - INTERVAL '30 seconds'`
+    );
+  } catch (err) {
+    console.error("Device offline check ERROR:", err);
+  }
+}, 10000);
 
 /* ✅ Serve 3D Teacher static files */
 const __filename = fileURLToPath(import.meta.url);
@@ -155,6 +172,6 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  // Sensor readings arrive through the real-time sensor endpoint on main.
   startScheduleAutomation();
+  startSensorSimulator();
 });
