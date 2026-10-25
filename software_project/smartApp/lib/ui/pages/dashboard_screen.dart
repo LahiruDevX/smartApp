@@ -9,6 +9,7 @@ import '../../features/learning/learning_service.dart';
 import '../../features/schedule/schedule_service.dart';
 import 'app_shell.dart';
 import 'ai_chat_screen.dart';
+import 'study_helper_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -724,6 +725,15 @@ class _QuickActionsRow extends StatelessWidget {
               subtitle: 'Ask a question',
               onTap: () =>
                   Navigator.pushReplacementNamed(context, '/ai-teacher'),
+            ),
+            _QuickAction(
+              icon: Icons.auto_awesome_outlined,
+              title: 'Study Helper',
+              subtitle: 'Ask AI anything',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StudyHelperScreen()),
+              ),
             ),
             _QuickAction(
               icon: Icons.menu_book_outlined,

@@ -24,6 +24,8 @@ BEGIN
       ADD COLUMN device_type TEXT NOT NULL,
       ADD COLUMN online      BOOLEAN NOT NULL DEFAULT true,
       ADD COLUMN updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ADD COLUMN last_seen   TIMESTAMPTZ NOT NULL DEFAULT now(),
+      ADD COLUMN manual_mode BOOLEAN NOT NULL DEFAULT false,
       ADD CONSTRAINT devices_type_check CHECK (device_type IN ('fan', 'bulb', 'rfid')),
       ADD CONSTRAINT devices_value_check CHECK (
         (device_type = 'fan'  AND slider_value BETWEEN 1 AND 3) OR
@@ -41,6 +43,8 @@ CREATE TABLE IF NOT EXISTS devices (
   slider_value INTEGER,
   online       BOOLEAN NOT NULL DEFAULT true,
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  manual_mode  BOOLEAN NOT NULL DEFAULT false,
 
   CONSTRAINT devices_type_check CHECK (device_type IN ('fan', 'bulb', 'rfid')),
   CONSTRAINT devices_value_check CHECK (
@@ -49,6 +53,13 @@ CREATE TABLE IF NOT EXISTS devices (
     (device_type = 'rfid' AND slider_value IS NULL)
   )
 );
+
+-- On a DB that already has device_type (either from an earlier run of the
+-- upgrade block above, or from the interim devices.sql on main (73f797e)),
+-- the block above is skipped entirely — so last_seen/manual_mode need their
+-- own idempotent checks rather than piggybacking on that one.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS manual_mode BOOLEAN NOT NULL DEFAULT false;
 
 -- On a DB set up from the interim devices.sql on main (73f797e), the columns
 -- already exist but the old demo rows (hvac, main_lights, ...) are still there,

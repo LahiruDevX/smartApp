@@ -21,7 +21,11 @@ class ApiClient {
 
   void _ensureOk(http.Response res, Map<String, dynamic> data) {
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw Exception(data['message'] ?? 'Request failed (${res.statusCode})');
+      // Most routes reply with {message}; the AI routes (aiTeacher.js,
+      // study_helper.routes.js) reply with {error} — accept either.
+      throw Exception(data['message'] ??
+          data['error'] ??
+          'Request failed (${res.statusCode})');
     }
   }
 
@@ -134,7 +138,41 @@ class ApiClient {
 */
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../storage/token_storage.dart';
+
+/// Maps a filename's extension to a MIME type for multipart uploads. Without
+/// this, [http.MultipartFile.fromBytes] defaults the part's Content-Type to
+/// `application/octet-stream` — which silently fails backend routes that
+/// gate uploads by MIME type via multer's `fileFilter` (e.g.
+/// materials.routes.js only accepts a fixed allow-list): multer just drops
+/// the file instead of erroring, so `req.file` ends up undefined and the
+/// route replies "file is required" even though a valid file was picked and
+/// sent. Falls back to octet-stream for anything not in this small list,
+/// same as before.
+MediaType? _mediaTypeForFilename(String filename) {
+  final ext = filename.contains('.')
+      ? filename.substring(filename.lastIndexOf('.') + 1).toLowerCase()
+      : '';
+  switch (ext) {
+    case 'pdf':
+      return MediaType('application', 'pdf');
+    case 'doc':
+      return MediaType('application', 'msword');
+    case 'docx':
+      return MediaType('application',
+          'vnd.openxmlformats-officedocument.wordprocessingml.document');
+    case 'png':
+      return MediaType('image', 'png');
+    case 'jpg':
+    case 'jpeg':
+      return MediaType('image', 'jpeg');
+    case 'webp':
+      return MediaType('image', 'webp');
+    default:
+      return null;
+  }
+}
 
 class ApiClient {
   ApiClient({
@@ -153,7 +191,11 @@ class ApiClient {
 
   void _ensureOk(http.Response res, Map<String, dynamic> data) {
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw Exception(data['message'] ?? 'Request failed (${res.statusCode})');
+      // Most routes reply with {message}; the AI routes (aiTeacher.js,
+      // study_helper.routes.js) reply with {error} — accept either.
+      throw Exception(data['message'] ??
+          data['error'] ??
+          'Request failed (${res.statusCode})');
     }
   }
 
@@ -281,6 +323,7 @@ class ApiClient {
         fileFieldName,
         fileBytes,
         filename: fileName,
+        contentType: _mediaTypeForFilename(fileName),
       ));
     }
 

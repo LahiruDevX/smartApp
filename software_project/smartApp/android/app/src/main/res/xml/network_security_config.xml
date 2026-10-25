@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows plain-HTTP (cleartext) traffic to the dev backend's LAN address only
+  — Android 9+ blocks cleartext traffic by default. This is NOT a blanket
+  allow-all; every other host still follows the platform default (HTTPS
+  only). Update the IP below if your laptop's local network address changes
+  (check with `ipconfig`, the Wi-Fi adapter's IPv4 Address).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.6</domain>
+    </domain-config>
+</network-security-config>

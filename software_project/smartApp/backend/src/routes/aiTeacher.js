@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { askOllama } from "../services/ollama.service.js";
 import { retrieve } from "../rag.js";
 
 const router = express.Router();
@@ -67,26 +68,22 @@ router.get("/teachers", requireAuth, (_req, res) => {
   });
 });
 
-// Configurable so you can swap models/host without touching code.
-const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b";
-
 // Step 1 of answering: which subject does the question belong to?
-// A separate, one-word classification is far more reliable on a small model
-// than asking the teacher to both judge the topic and answer in one prompt
-// (it used to refuse on-topic questions its notes didn't cover).
+// A separate, one-word classification is far more reliable than asking the
+// teacher to both judge the topic and answer in one prompt (it used to
+// refuse on-topic questions its notes didn't cover).
 // Returns a roster subject name, or "General" when nothing fits.
-export async function classifySubject(question, subjects, model = OLLAMA_MODEL) {
+export async function classifySubject(question, subjects) {
   const choices = subjects.filter((s) => s.toLowerCase() !== "general");
-  const reply = await askModel(
-    `Classify the student's question into exactly one school subject from this list: ` +
+  const { text, error } = await askOllama({
+    prompt: question,
+    systemInstruction:
+      `Classify the student's question into exactly one school subject from this list: ` +
       `${choices.join(", ")}. If it fits none of them, answer General. ` +
       `Reply with only the subject name.`,
-    question,
-    model,
-    { temperature: 0, num_predict: 8 }
-  );
-  const lower = reply.toLowerCase();
+  });
+  if (error || !text) return "General";
+  const lower = text.toLowerCase();
   return choices.find((s) => lower.includes(s.toLowerCase())) || "General";
 }
 
@@ -99,10 +96,9 @@ export function redirectReply(t, otherSubject) {
   );
 }
 
-// The teacher's instructions. Kept short and as numbered rules: small local
-// models follow a few direct rules far better than a long paragraph.
-// Off-topic questions never reach this prompt (see classifySubject), so the
-// teacher only has to answer.
+// The teacher's instructions, passed to Ollama as the system message.
+// Kept short and as numbered rules. Off-topic questions never reach this
+// prompt (see classifySubject), so the teacher only has to answer.
 export function buildSystemPrompt(t, passages, { roomId, schedule } = {}) {
   const isGeneral = t.subject.toLowerCase() === "general";
 
@@ -137,30 +133,6 @@ export function buildSystemPrompt(t, passages, { roomId, schedule } = {}) {
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-// One reply from the local model. The rules go in the system message so the
-// model treats them as instructions, not as part of the student's question.
-// `options` are Ollama generation options; the default temperature keeps
-// answers steady and factual.
-export async function askModel(system, question, model = OLLAMA_MODEL, options = { temperature: 0.4 }) {
-  const r = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      stream: false,
-      options,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: question },
-      ],
-    }),
-  });
-  if (!r.ok) {
-    throw new Error(`Ollama error (${r.status}): ${(await r.text()).slice(0, 200)}`);
-  }
-  return (await r.json()).message.content.trim();
 }
 
 // GET /api/ai/overview (staff) -> per-subject AI teacher status for the
@@ -366,12 +338,17 @@ router.post("/teacher", requireAuth, async (req, res) => {
     const passages = offTopic ? [] : found;
 
     let reply;
-    try {
-      reply = offTopic
-        ? redirectReply(t, topic)
-        : await askModel(buildSystemPrompt(t, passages, { roomId, schedule }), message);
-    } catch (llmErr) {
-      return res.status(502).json({ error: llmErr.message });
+    if (offTopic) {
+      reply = redirectReply(t, topic);
+    } else {
+      const { text, error } = await askOllama({
+        prompt: message,
+        systemInstruction: buildSystemPrompt(t, passages, { roomId, schedule }),
+      });
+      if (error) {
+        return res.status(502).json({ error });
+      }
+      reply = text;
     }
 
     // Persist the turn (best-effort — a DB hiccup must not lose the reply).
@@ -394,7 +371,7 @@ router.post("/teacher", requireAuth, async (req, res) => {
   } catch (e) {
     console.error(e);
     return res.status(502).json({
-      error: "Cannot reach the AI model. Is Ollama running?",
+      error: "Cannot reach the AI model. Please try again.",
     });
   }
 });

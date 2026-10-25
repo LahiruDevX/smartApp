@@ -91,4 +91,4 @@ click the page once, then in the DevTools console run:
     __teacherMorph("mouthSmileLeft", 1)   // pose one shape by hand (0..1)
 
 This speaks the text with the browser voice and drives gestures + lip-sync
-without needing a login token or Ollama.
+without needing a login token or a call to the Gemini backend.

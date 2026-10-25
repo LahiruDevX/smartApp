@@ -8,6 +8,8 @@ import '../../features/admin/admin_service.dart';
 import '../../features/devices/device_service.dart';
 import '../../features/notices/notice_service.dart';
 import '../../features/quizzes/quiz_service.dart';
+import '../../features/study_helper/study_helper_service.dart';
+import '../../features/meetings/meeting_service.dart';
 
 /// Backend base URL. Override at build/run time with:
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:4000
@@ -36,3 +38,7 @@ final AdminService adminService = AdminService(apiClient);
 final NoticeService noticeService = NoticeService(apiClient);
 
 final QuizService quizService = QuizService(apiClient);
+
+final StudyHelperService studyHelperService = StudyHelperService(apiClient);
+
+final MeetingService meetingService = MeetingService(apiClient);
