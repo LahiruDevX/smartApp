@@ -221,7 +221,7 @@ router.get("/:id/attendance", requireRole("teacher"), async (req, res) => {
               a.joined_at, a.left_at, a.final_status,
               a.presence_checks_total, a.presence_checks_with_face
        FROM meeting_attendance a
-       JOIN "User" u ON u.id = a.student_id
+       JOIN users u ON u.id = a.student_id
        WHERE a.meeting_id = $1
        ORDER BY a.joined_at ASC NULLS LAST`,
       [req.params.id]

@@ -314,17 +314,36 @@ router.post("/:id/submit", requireRole("student"), async (req, res) => {
   }
 });
 
-// DELETE /api/quizzes/:id (teacher/admin only) — cascades to questions/attempts/answers
+// DELETE /api/quizzes/:id (teacher/admin only) — cascades to questions/attempts/answers.
+// quiz_answers.question_id has no ON DELETE CASCADE (it only cascades from
+// quiz_attempts), so a quiz with existing attempts must have its answers
+// removed explicitly first — otherwise deleting the quiz's questions (which
+// DOES cascade from quizzes) hits a dangling FK from quiz_answers.
 router.delete("/:id", staff, async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { rowCount } = await pool.query(`DELETE FROM quizzes WHERE id = $1`, [
-      req.params.id,
-    ]);
-    if (!rowCount) return res.status(404).json({ message: "Not found" });
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM quiz_answers
+       WHERE question_id IN (SELECT id FROM quiz_questions WHERE quiz_id = $1)`,
+      [req.params.id]
+    );
+    const { rowCount } = await client.query(
+      `DELETE FROM quizzes WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Not found" });
+    }
+    await client.query("COMMIT");
     res.json({ message: "Deleted" });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
