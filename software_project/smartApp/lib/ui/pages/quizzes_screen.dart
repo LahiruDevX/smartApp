@@ -119,9 +119,19 @@ class _QuizzesScreenState extends State<QuizzesScreen> {
         ],
       ),
     );
-    if (ok == true) {
+    if (ok != true) return;
+    try {
       await quizService.delete(quiz.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted "${quiz.title}"')),
+      );
       _loadQuizzes();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete quiz: $e')),
+      );
     }
   }
 

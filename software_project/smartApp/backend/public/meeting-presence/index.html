@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Presence Check</title>
+  <style>
+    html, body { margin: 0; background: #000; overflow: hidden; }
+    /* Not display:none — some browsers pause video decoding for elements
+       with no layout box, which would starve face-api.js of real frames. */
+    video { width: 1px; height: 1px; }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay muted playsinline></video>
+  <!-- Reuses the face-api.js build + models already vendored for the
+       Attendance feature (served at /face) instead of duplicating them. -->
+  <script src="/face/face-api.min.js"></script>
+  <script src="./main.js"></script>
+</body>
+</html>

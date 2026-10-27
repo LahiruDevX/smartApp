@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../features/meetings/meeting_service.dart';
 
-/// Picked when neither `dart.library.html` nor `dart.library.io` matches
-/// (in practice unreachable for a real Flutter build target — kept only to
+/// Picked when neither `dart.library.html` nor `dart.library.io` matches —
+/// in practice unreachable for a real Flutter build target, kept only to
 /// satisfy the conditional import's required default, same as
-/// teacher3d_view_stub.dart).
+/// teacher3d_view_stub.dart.
 Widget buildMeetingRoomView(Meeting meeting) =>
     _MeetingRoomUnsupported(meeting: meeting);
 

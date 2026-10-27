@@ -165,6 +165,30 @@ app.use(
   express.static(path.join(__dirname, "..", "public", "face"))
 );
 
+// Presence-only camera check for the web Meetings screen (separate from the
+// Jitsi iframe — see meeting_room_view_web.dart). Same iframe-embedding
+// headers as /face above.
+app.use(
+  "/meeting-presence",
+  (req, res, next) => {
+    res.removeHeader("X-Frame-Options");
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' blob:",
+        "connect-src 'self'",
+        "frame-ancestors *",
+      ].join("; ")
+    );
+    next();
+  },
+  express.static(path.join(__dirname, "..", "public", "meeting-presence"))
+);
+
 app.get("/", (req, res) => {
   res.json({ message: "Smart Classroom API running" });
 });
